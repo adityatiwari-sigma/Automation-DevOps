@@ -1,0 +1,16 @@
+# ============================================================
+# GRAFANA DASHBOARD PROVISIONING
+# Loads dashboard JSON files from the mounted directory
+# ============================================================
+apiVersion: 1
+
+providers:
+  - name: "AIOps Dashboards"
+    orgId: 1
+    type: file
+    disableDeletion: false
+    updateIntervalSeconds: 30
+    allowUiUpdates: true
+    options:
+      path: /var/lib/grafana/dashboards
+      foldersFromFilesStructure: false
