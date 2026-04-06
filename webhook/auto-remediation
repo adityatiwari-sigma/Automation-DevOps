@@ -1,0 +1,14 @@
+/var/log/auto-remediation.log {
+    daily
+    rotate 90
+    missingok
+    notifempty
+    compress
+    delaycompress
+    create 0640 root adm
+    postrotate
+        if [ -f /run/auto-remediation-webhook.pid ]; then
+            kill -USR1 $(cat /run/auto-remediation-webhook.pid)
+        fi
+    endscript
+}

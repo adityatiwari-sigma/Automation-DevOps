@@ -68,20 +68,20 @@ scrape_configs:
         labels:
           service: alertmanager
 
-  # ── Remote Nginx Exporter (dev.regenics.com — 192.168.29.124) ──
+  # ── Remote Nginx Exporter (dev.regenics.com — 10.10.2.21) ──
   - job_name: "nginx-exporter-remote"
     static_configs:
-      - targets: ["192.168.29.124:9113"]
+      - targets: ["10.10.2.21:9113"]
         labels:
           service: nginx
           platform: "dev.regenics.com"
           environment: "production"
           instance_name: "dev-regenics"
 
-  # ── Remote Node Exporter (dev.regenics.com — 192.168.29.124) ──
+  # ── Remote Node Exporter (dev.regenics.com — 10.10.2.21) ──
   - job_name: "node-exporter-remote"
     static_configs:
-      - targets: ["192.168.29.124:9100"]
+      - targets: ["10.10.2.21:9100"]
         labels:
           service: node-exporter
           platform: "dev.regenics.com"
