@@ -1,177 +1,107 @@
 import os
 import json
 import subprocess
-import threading
-import datetime
-import signal
-import sys
-from http.server import BaseHTTPRequestHandler, HTTPServer
-import urllib.request
-import urllib.parse
 import time
+from datetime import datetime
+from flask import Flask, request, jsonify
 
-PORT = int(os.environ.get("WEBHOOK_PORT", 5001))
-REMEDIATION_DIR = os.environ.get("REMEDIATION_DIR", "/opt/monitoring/remediate")
-LOG_FILE = "/var/log/auto-remediation.log"
-PID_FILE = "/run/auto-remediation-webhook.pid"
+# Configuration
+LOG_FILE = "/home/adityatiwari/Documents/AOPS/auto-remediation.log"
+SLACK_WEBHOOK = "https://hooks.slack.com/services/T01D35Z6P7P/B06TZM06DQX/YOUR_KEY"
+SCRIPTS_DIR = "/home/adityatiwari/Documents/AOPS/remediate"
 
-def write_pid():
+app = Flask(__name__)
+
+def log_remediation(trigger, platform, diagnosis, action, status, duration, evidence):
+    """Writes a production-ready structured log entry."""
+    timestamp = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
+    # Use JSON for evidence to keep it one-line but readable
+    evidence_clean = evidence.replace('\n', ' | ').replace('"', "'")
+    log_line = (
+        f"{timestamp} "
+        f"TRIGGER=\"{trigger}\" "
+        f"PLATFORM=\"{platform}\" "
+        f"DIAGNOSIS=\"{diagnosis}\" "
+        f"ACTION=\"{action}\" "
+        f"STATUS=\"{status}\" "
+        f"DURATION=\"{duration}s\" "
+        f"EVIDENCE=\"{evidence_clean}\"\n"
+    )
+    with open(LOG_FILE, "a") as f:
+        f.write(log_line)
+        f.flush()
+        os.fsync(f.fileno())
+
+@app.route('/', methods=['GET'])
+def index():
+    """Live Action Dashboard for AOPS Remediation."""
     try:
-        with open(PID_FILE, "w") as f:
-            f.write(str(os.getpid()))
-    except Exception as e:
-        print(f"Error writing PID file: {e}")
-
-def signal_handler(signum, frame):
-    if signum == signal.SIGUSR1:
-        log_message("Received SIGUSR1 (log rotation signal)")
-    elif signum == signal.SIGTERM:
-        log_message("Received SIGTERM, shutting down...")
-        sys.exit(0)
-
-def log_message(message):
-    timestamp = datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-    formatted_msg = f"{timestamp} {message}"
-    print(formatted_msg)
-    try:
-        with open(LOG_FILE, "a") as f:
-            f.write(formatted_msg + "\n")
-    except Exception as e:
-        print(f"Error logging to {LOG_FILE}: {e}")
-
-def run_remediation(script_name):
-    script_path = os.path.join(REMEDIATION_DIR, f"{script_name}.sh")
-    if not os.path.exists(script_path):
-        log_message(f"REMEDIATION_DISPATCH ERROR=\"Script not found: {script_path}\"")
-        return
-
-    log_message(f"REMEDIATION_DISPATCH SCRIPT=\"{script_name}\" STATUS=\"START\"")
-    try:
-        # Run script and ignore output as it logs itself
-        subprocess.run(["/bin/bash", script_path], check=False, env=os.environ.copy())
-        log_message(f"REMEDIATION_DISPATCH SCRIPT=\"{script_name}\" STATUS=\"DISPATCHED\"")
-    except Exception as e:
-        log_message(f"REMEDIATION_DISPATCH SCRIPT=\"{script_name}\" STATUS=\"FAILED\" ERROR=\"{e}\"")
-
-def fetch_loki_logs(query, minutes=5):
-    end_time = int(time.time() * 10**9)
-    start_time = end_time - (minutes * 60 * 10**9)
-    url = f"http://loki:3100/loki/api/v1/query_range?query={urllib.parse.quote(query)}&start={start_time}&end={end_time}&limit=500"
-    try:
-        req = urllib.request.Request(url)
-        with urllib.request.urlopen(req) as response:
-            data = json.loads(response.read().decode('utf-8'))
-            logs = []
-            if data.get('status') == 'success':
-                result = data.get('data', {}).get('result', [])
-                for stream in result:
-                    for val in stream.get('values', []):
-                        logs.append(val[1])
-            return logs
-    except Exception as e:
-        log_message(f"DYNAMIC_TRIAGE ERROR=\"Loki fetch failed: {e}\"")
-        return []
-
-def run_dynamic_triage():
-    log_message("DYNAMIC_TRIAGE STATUS=\"START\"")
-    # Fetch logs
-    q1 = '{platform="nginx"} | json | __error__="" | status >= 500'
-    q2 = '{level="error"}'
-    logs = fetch_loki_logs(q1) + fetch_loki_logs(q2)
-    
-    script_to_run = "generic_triage"
-    matched_pattern = "none match"
-    
-    # Pattern detection
-    patterns = {
-        "upstream timed out": "restart_upstream",
-        "connect() failed": "validate_network",
-        "PHP Fatal error": "restart_php_fpm",
-        "MySQL server has gone away": "check_db",
-        "slow quer": "check_db"
-    }
-    
-    for log_line in logs:
-        for pattern, script in patterns.items():
-            if pattern in log_line:
-                script_to_run = script
-                matched_pattern = pattern
-                break
-        if matched_pattern != "none match":
-            break
-            
-    log_message(f"DYNAMIC_TRIAGE PATTERN=\"{matched_pattern}\" SCRIPT=\"{script_to_run}\"")
-    run_remediation(script_to_run)
-
-class WebhookHandler(BaseHTTPRequestHandler):
-    def do_GET(self):
-        if self.path == '/healthz':
-            self.send_response(200)
-            self.send_header('Content-type', 'application/json')
-            self.end_headers()
-            auto_remediate = os.environ.get("AUTO_REMEDIATE", "true")
-            response = {"status": "ok", "auto_remediate": auto_remediate}
-            self.wfile.write(json.dumps(response).encode())
+        if os.path.exists(LOG_FILE):
+            with open(LOG_FILE, 'r') as f:
+                lines = f.readlines()
+            recent_logs = "".join(lines[-10:])
         else:
-            self.send_response(404)
-            self.end_headers()
+            recent_logs = "No incidents logged yet."
+    except Exception as e:
+        recent_logs = f"Error reading logs: {str(e)}"
+    
+    return f"""
+    <html><body style="font-family: sans-serif; padding: 20px; background: #fafafa;">
+    <h1>🚀 AOPS Auto-Remediation Engine</h1>
+    <p>Engine Status: <span style="color: green; font-weight: bold;">ACTIVE</span> | UI Port: 5051</p>
+    <hr/>
+    <h3>📜 Full Remediation Evidence Feed (Last 10):</h3>
+    <pre style="background: #222; color: #0f0; padding: 15px; border-radius: 5px; overflow-x: auto; font-size: 13px; line-height: 1.5;">{recent_logs}</pre>
+    <button onclick="window.location.reload();" style="padding: 10px 20px; cursor: pointer; background: #333; color: white; border: none; border-radius: 5px;">🔄 Refresh Feed</button>
+    <p style="color: #666; font-size: 12px;">Monitoring path: {LOG_FILE}</p>
+    </body></html>
+    """, 200
 
-    def do_POST(self):
-        if self.path == '/webhook':
-            content_length = int(self.headers['Content-Length'])
-            post_data = self.rfile.read(content_length)
-            
+@app.route('/webhook', methods=['POST'])
+def webhook():
+    data = request.json
+    if not data:
+        return jsonify({"error": "No data"}), 400
+
+    alerts = data.get('alerts', [])
+    for alert in alerts:
+        if alert.get('status') == 'resolved':
+            log_remediation("resolution", alert.get('labels', {}).get('platform', 'unknown'), "System Recovered", "monitoring", "RESOLVED", 0, "Self-heal confirmed by Alertmanager")
+            continue
+
+        start_time = time.time()
+        labels = alert.get('labels', {})
+        remediation_task = labels.get('remediation', 'generic_triage')
+        platform = labels.get('platform', 'unknown')
+
+        script_path = os.path.join(SCRIPTS_DIR, f"{remediation_task}.sh")
+        
+        if os.path.exists(script_path):
+            env = os.environ.copy()
+            for key, value in labels.items():
+                env[f"LABEL_{key.upper()}"] = str(value)
+
             try:
-                data = json.loads(post_data.decode('utf-8'))
+                result = subprocess.run(["bash", script_path], env=env, capture_output=True, text=True, timeout=60)
+                duration = round(time.time() - start_time, 2)
+                
+                # Dynamic Diagnosis based on script result
+                if "Confirmed:" in result.stdout:
+                    diagnosis = result.stdout.split("Confirmed:")[1].split(".")[0].strip()
+                    exec_status = "SUCCESS"
+                elif "SKIPPED" in result.stdout:
+                    diagnosis = "Triage Finished (No Pattern Matched)"
+                    exec_status = "SKIPPED"
+                else:
+                    diagnosis = "Analysis Attempted"
+                    exec_status = "FAILED" if result.returncode != 0 else "SUCCESS"
+                
+                log_remediation(remediation_task, platform, diagnosis, remediation_task, exec_status, duration, result.stdout.strip())
+                
             except Exception as e:
-                log_message(f"WEBHOOK_ERROR=\"JSON parse failed: {e}\"")
-                self.send_response(400)
-                self.end_headers()
-                return
+                log_remediation(remediation_task, platform, "ERROR CRASH", "triage", "FAILED", 0, str(e))
 
-            auto_remediate = os.environ.get("AUTO_REMEDIATE", "true")
-            
-            for alert in data.get('alerts', []):
-                if alert.get('status') == 'firing':
-                    remediation = alert.get('labels', {}).get('remediation')
-                    if remediation:
-                        if auto_remediate == 'false':
-                            log_message(f"WEBHOOK_SKIP SCRIPT=\"{remediation}\" REASON=\"AUTO_REMEDIATE=false\"")
-                        else:
-                            if remediation == "dynamic_triage":
-                                thread = threading.Thread(target=run_dynamic_triage)
-                                thread.start()
-                            else:
-                                # Run each script in a background thread
-                                thread = threading.Thread(target=run_remediation, args=(remediation,))
-                                thread.start()
-
-            self.send_response(200)
-            self.end_headers()
-            self.wfile.write(b'{"status":"ok"}')
-        else:
-            self.send_response(404)
-            self.end_headers()
-
-    def log_message(self, format, *args):
-        # Override to suppress default HTTP logging to stderr, 
-        # but we could also pipe it to our log file if needed.
-        return
-
-def run_server():
-    # Register signal handlers
-    signal.signal(signal.SIGUSR1, signal_handler)
-    signal.signal(signal.SIGTERM, signal_handler)
-
-    write_pid()
-
-    server_address = ('', PORT)
-    try:
-        httpd = HTTPServer(server_address, WebhookHandler)
-        log_message(f"WEBHOOK_START PORT={PORT} REMEDIATION_DIR={REMEDIATION_DIR}")
-        httpd.serve_forever()
-    except Exception as e:
-        log_message(f"WEBHOOK_FATAL ERROR=\"{e}\"")
+    return jsonify({"status": "processed"}), 200
 
 if __name__ == '__main__':
-    run_server()
+    app.run(host='0.0.0.0', port=5051)

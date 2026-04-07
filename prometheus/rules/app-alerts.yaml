@@ -18,12 +18,13 @@ groups:
             /
             sum(rate(nginx_request_duration_ms_count[2m]))
           ) > 0.05
-        for: 2m
+        for: 0s
         labels:
           severity: p1
           tier: critical
           service: nginx
           source: prometheus
+          remediation: generic_triage
         annotations:
           summary: "🚨 5xx error rate exceeds 5%"
           description: "The HTTP 5xx error rate has been above 5% for 2 consecutive minutes. Current value: {{ $value | humanizePercentage }}."
@@ -37,12 +38,13 @@ groups:
       - alert: P1_5xxCountSpike
         expr: |
           sum(increase(nginx_http_requests_total{status=~"5.."}[2m])) > 50
-        for: 2m
+        for: 0s
         labels:
           severity: p1
           tier: critical
           service: nginx
           source: prometheus
+          remediation: generic_triage
         annotations:
           summary: "🚨 5xx error count spike (>50 in 2min)"
           description: "More than 50 HTTP 5xx errors in the last 2 minutes. Absolute count: {{ $value }}."
@@ -170,20 +172,20 @@ groups:
     rules:
       - alert: PHPFPMWorkerPoolExhaustion
         expr: phpfpm_active_processes{pool="www"} / phpfpm_max_active_processes{pool="www"} > 0.90
-        for: 1m
+        for: 0s
         labels:
           severity: p1
-          remediation: fpm-reload
+          remediation: generic_triage
         annotations:
           summary: "🚨 PHP-FPM pool exhaustion (>90%)"
           description: "Active processes are above 90% of max children for 1 minute."
 
       - alert: RedisMemoryHigh
         expr: redis_memory_used_bytes / redis_memory_max_bytes > 0.90
-        for: 2m
+        for: 0s
         labels:
           severity: p1
-          remediation: redis-flush-cache
+          remediation: generic_triage
         annotations:
           summary: "🚨 Redis memory usage exceeds 90%"
           description: "Redis instance is using more than 90% of its max memory."
@@ -193,11 +195,11 @@ groups:
           sum(rate(nginx_http_requests_total{status=~"5.."}[2m]))
           /
           sum(rate(nginx_http_requests_total[2m])) > 0.05
-        for: 2m
+        for: 0s
         labels:
           severity: p1
           service: nginx
-          remediation: dynamic_triage
+          remediation: generic_triage
         annotations:
           summary: "High HTTP 5xx error rate detected"
           description: "More than 5% of requests are failing with 5xx errors"

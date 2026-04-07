@@ -31,8 +31,8 @@ templates:
 route:
   receiver: "default-email"
   group_by: ["alertname", "severity", "platform"]
-  group_wait: 30s
-  group_interval: 5m
+  group_wait: 2s
+  group_interval: 5s
   repeat_interval: 4h          # default fallback (P3-level)
 
   routes:
@@ -41,6 +41,7 @@ route:
         remediation: ".+"
       receiver: "auto-remediation-webhook"
       group_wait: 10s
+      group_interval: 1m
       repeat_interval: 5m
       continue: true
 
@@ -79,7 +80,7 @@ receivers:
   # ── Auto-remediation webhook ──
   - name: "auto-remediation-webhook"
     webhook_configs:
-      - url: "http://127.0.0.1:5001/webhook"
+      - url: "http://10.10.2.77:5051/webhook"
         send_resolved: true
 
   # ── Default fallback ──

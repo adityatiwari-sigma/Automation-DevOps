@@ -1,7 +1,7 @@
 #!/bin/bash
 
 # Configuration
-LOG_FILE="/var/log/auto-remediation.log"
+LOG_FILE="/home/adityatiwari/Documents/AOPS/auto-remediation.log"
 REMOTE_IP="10.10.2.21"
 REDIS_HOST="${REMOTE_IP}"
 REDIS_PORT="${REDIS_PORT:-6379}"

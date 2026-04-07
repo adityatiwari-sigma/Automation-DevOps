@@ -3,7 +3,7 @@ groups:
   # P1 — CRITICAL / IMMEDIATE
   # ────────────────────────────────────────────────────────────
   - name: p1-critical-log-alerts
-    interval: 1m
+    interval: 15s
     rules:
       - alert: P1_CheckoutPaymentFatal
         expr: |
@@ -13,6 +13,7 @@ groups:
           severity: p1
           tier: critical
           source: loki
+          remediation: generic_triage
         annotations:
           summary: "🚨 FATAL error in checkout/payment flow"
           description: "A fatal error was detected in the {{ $labels.platform }} logs related to checkout/payment."
@@ -22,7 +23,7 @@ groups:
   # P2 — HIGH / WITHIN 1 HOUR
   # ────────────────────────────────────────────────────────────
   - name: p2-high-log-alerts
-    interval: 1m
+    interval: 15s
     rules:
       - alert: P2_AppFatalRateHigh
         expr: |
@@ -32,6 +33,7 @@ groups:
           severity: p2
           tier: high
           source: loki
+          remediation: generic_triage
         annotations:
           summary: "⚠️ High Fatal Error Rate on {{ $labels.platform }}"
           description: "Platform {{ $labels.platform }} is reporting fatal errors."
@@ -45,6 +47,7 @@ groups:
           severity: p2
           tier: high
           source: loki
+          remediation: generic_triage
         annotations:
           summary: "⚠️ MySQL Error/Slow-Query Spike"
           description: "Database platform is reporting elevated errors or slow queries."
@@ -54,7 +57,7 @@ groups:
   # P3 — LOW / DAILY DIGEST
   # ────────────────────────────────────────────────────────────
   - name: p3-low-log-alerts
-    interval: 1m
+    interval: 15s
     rules:
       - alert: P3_PlatformWarningRateElevated
         expr: |
@@ -64,6 +67,7 @@ groups:
           severity: p3
           tier: low
           source: loki
+          remediation: generic_triage
         annotations:
           summary: "ℹ️ Elevated Warning Rate on {{ $labels.platform }}"
           description: "Review warnings for {{ $labels.platform }} in the daily digest."

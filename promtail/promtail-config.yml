@@ -8,31 +8,24 @@ clients:
   - url: http://10.10.2.77:3100/loki/api/v1/push
 
 scrape_configs:
-# 🔹 NGINX
-- job_name: nginx
+# 🔹 NGINX ACCESS (JSON)
+- job_name: nginx-access
   static_configs:
     - targets: [localhost]
       labels:
         platform: nginx
+        log_type: nginx-access
         environment: prod
-        __path__: /var/log/nginx/*.log
+        __path__: /var/log/nginx/access.log
   pipeline_stages:
-    # 1. Identify log file name
-    - regex:
-        source: filename
-        expression: '.*/(?P<log_type>[^/]+)\.log'
-    # 2. Extract Response Time and Status from JSON logs
     - json:
         expressions:
           status:
           uri:
           latency: response_time_ms
-    # 3. Apply labels for Prometheus graphs
     - labels:
-        log_type:
         status:
         uri:
-    # 4. Create Histogram (Buckets adjusted for raw seconds: 0.1s, 0.5s, 1s, etc.)
     - metrics:
         nginx_request_duration_ms:
           type: Histogram
@@ -40,152 +33,69 @@ scrape_configs:
           source: latency
           config:
             buckets: [0.05, 0.1, 0.25, 0.5, 1, 2.5, 5, 10]
- 
-    # 5. Masking and Label Formatting
-    - replace:
-        source: log_type
-        expression: 'access'
-        replace: 'nginx-access'
-    - replace:
-        source: log_type
-        expression: 'error'
-        replace: 'nginx-error'
-    - labels:
-        log_type:
-    - replace:
-        expression: '\b\d{1,3}(\.\d{1,3}){3}\b'
-        replace: 'MASKED_IP'
-    - replace:
-        expression: '[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-z]{2,}'
-        replace: 'MASKED_EMAIL'
+
+# 🔹 NGINX ERROR (Text)
+- job_name: nginx-error
+  static_configs:
+    - targets: [localhost]
+      labels:
+        platform: nginx
+        log_type: nginx-error
+        environment: prod
+        __path__: /var/log/nginx/error.log
+  pipeline_stages:
     - regex:
-        expression: '(?i)(?P<level>error|warn|info|debug|fatal)'
+        expression: '(?i)(?P<level>error|warn|info|debug|fatal|emergency|critical)'
     - labels:
         level:
- 
-# 🔹 PHP-FPM
+
+# 🔹 PHP-FPM ERROR
 - job_name: php-fpm
   static_configs:
     - targets: [localhost]
       labels:
         platform: php-fpm
+        log_type: php-fpm-error
         environment: prod
         __path__: /var/log/php*-fpm.log
   pipeline_stages:
     - regex:
-        source: filename
-        expression: '.*/(?P<log_type>[^/]+)\.log'
-    - labels:
-        log_type:
-    - regex:
-        expression: '(?i)(?P<level>error|warn|notice|debug)'
+        expression: '(?i)(?P<level>error|warn|notice|debug|fatal)'
     - labels:
         level:
- 
-# 🔹 LARAVEL
-- job_name: laravel
-  static_configs:
-    - targets: [localhost]
-      labels:
-        platform: laravel
-        environment: prod
-        __path__: /var/www/*/storage/logs/*.log
-  pipeline_stages:
-    - regex:
-        source: filename
-        expression: '.*/(?P<log_type>[^/]+)\.log'
-    - replace:
-        source: log_type
-        expression: 'laravel'
-        replace: 'laravel-app'
-    - labels:
-        log_type:
-    - replace:
-        expression: '[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-z]{2,}'
-        replace: 'MASKED_EMAIL'
-    - regex:
-        expression: '(?i)(?P<level>error|warning|info|debug|critical)'
-    - labels:
-        level:
- 
-# 🔹 WORDPRESS
-- job_name: wordpress
-  static_configs:
-    - targets: [localhost]
-      labels:
-        platform: wordpress
-        environment: prod
-        __path__: /var/www/*/wp-content/debug.log
-  pipeline_stages:
-    - regex:
-        source: filename
-        expression: '.*/(?P<log_type>[^/]+)\.log'
-    - replace:
-        source: log_type
-        expression: 'debug'
-        replace: 'wordpress-debug'
-    - labels:
-        log_type:
-    - replace:
-        expression: '[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-z]{2,}'
-        replace: 'MASKED_EMAIL'
-    - regex:
-        expression: '(?i)(?P<level>error|warning|notice|debug)'
-    - labels:
-        level:
- 
-# 🔹 MYSQL
+
+# 🔹 MYSQL ERROR
 - job_name: mysql
   static_configs:
     - targets: [localhost]
       labels:
         platform: mysql
+        log_type: mysql-error
         environment: prod
         __path__: /var/log/mysql/*.log
   pipeline_stages:
     - regex:
-        source: filename
-        expression: '.*/(?P<log_type>[^/]+)\.log'
-    - labels:
-        log_type:
-    - regex:
         expression: '(?i)(?P<level>error|warning|note|info)'
     - labels:
         level:
- 
-# 🔹 MAGENTO
-- job_name: magento
+
+# 🔹 PLATFORM LOGS (Laravel/WordPress/Magento)
+- job_name: platform-apps
   static_configs:
     - targets: [localhost]
       labels:
-        platform: adobe-commerce
+        environment: prod
+        __path__: /var/www/html/*/storage/logs/*.log
+    - targets: [localhost]
+      labels:
+        environment: prod
+        __path__: /var/www/*/wp-content/debug.log
+    - targets: [localhost]
+      labels:
         environment: prod
         __path__: /var/www/*/var/log/*.log
   pipeline_stages:
     - regex:
-        source: filename
-        expression: '.*/(?P<log_type>[^/]+)\.log'
-    - replace:
-        source: log_type
-        expression: 'system'
-        replace: 'magento-system'
-    - replace:
-        source: log_type
-        expression: 'exception'
-        replace: 'magento-exception'
-    - replace:
-        source: log_type
-        expression: 'debug'
-        replace: 'magento-debug'
-    - labels:
-        log_type:
-    - replace:
-        expression: '\b\d{1,3}(\.\d{1,3}){3}\b'
-        replace: 'MASKED_IP'
-    - replace:
-        expression: '[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-z]{2,}'
-        replace: 'MASKED_EMAIL'
-    - regex:
-        expression: '(?i)(?P<level>error|critical|warning|notice|info|debug)'
+        expression: '(?i)(?P<level>error|warning|critical|fatal|notice|info|debug)'
     - labels:
         level:
