@@ -3,7 +3,10 @@
     "list": [
       {
         "builtIn": 1,
-        "datasource": { "type": "grafana", "uid": "-- Grafana --" },
+        "datasource": {
+          "type": "grafana",
+          "uid": "-- Grafana --"
+        },
         "enable": true,
         "hide": true,
         "iconColor": "rgba(0, 211, 255, 1)",
@@ -23,78 +26,416 @@
       "id": 101,
       "title": "P1 Critical",
       "type": "stat",
-      "gridPos": { "h": 3, "w": 6, "x": 0, "y": 0 },
-      "datasource": { "type": "prometheus", "uid": "prometheus" },
-      "options": { "reduceOptions": { "calcs": ["lastNotNull"] }, "colorMode": "background", "justifyMode": "center", "textMode": "value" },
-      "fieldConfig": { "defaults": { "mappings": [{ "type": "value", "options": { "0": { "text": "✅ OK", "color": "dark-green" } } }], "thresholds": { "mode": "absolute", "steps": [{ "color": "dark-green", "value": null }, { "color": "dark-red", "value": 1 }] } } },
-      "targets": [{ "expr": "count(ALERTS{alertstate=\"firing\", severity=\"p1\"}) or vector(0)", "instant": true }]
+      "gridPos": {
+        "h": 3,
+        "w": 6,
+        "x": 0,
+        "y": 0
+      },
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "options": {
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ]
+        },
+        "colorMode": "background",
+        "justifyMode": "center",
+        "textMode": "value"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "mappings": [
+            {
+              "type": "value",
+              "options": {
+                "0": {
+                  "text": "✅ OK",
+                  "color": "dark-green"
+                }
+              }
+            }
+          ],
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "dark-green",
+                "value": null
+              },
+              {
+                "color": "dark-red",
+                "value": 1
+              }
+            ]
+          }
+        }
+      },
+      "targets": [
+        {
+          "expr": "count(ALERTS{alertstate=\"firing\", severity=\"p1\"}) or vector(0)",
+          "instant": true
+        }
+      ]
     },
     {
       "id": 102,
       "title": "P2 High",
       "type": "stat",
-      "gridPos": { "h": 3, "w": 6, "x": 6, "y": 0 },
-      "datasource": { "type": "prometheus", "uid": "prometheus" },
-      "options": { "reduceOptions": { "calcs": ["lastNotNull"] }, "colorMode": "background", "justifyMode": "center", "textMode": "value" },
-      "fieldConfig": { "defaults": { "mappings": [{ "type": "value", "options": { "0": { "text": "✅ OK", "color": "dark-green" } } }], "thresholds": { "mode": "absolute", "steps": [{ "color": "dark-green", "value": null }, { "color": "dark-orange", "value": 1 }] } } },
-      "targets": [{ "expr": "count(ALERTS{alertstate=\"firing\", severity=\"p2\"}) or vector(0)", "instant": true }]
+      "gridPos": {
+        "h": 3,
+        "w": 6,
+        "x": 6,
+        "y": 0
+      },
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "options": {
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ]
+        },
+        "colorMode": "background",
+        "justifyMode": "center",
+        "textMode": "value"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "mappings": [
+            {
+              "type": "value",
+              "options": {
+                "0": {
+                  "text": "✅ OK",
+                  "color": "dark-green"
+                }
+              }
+            }
+          ],
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "dark-green",
+                "value": null
+              },
+              {
+                "color": "dark-orange",
+                "value": 1
+              }
+            ]
+          }
+        }
+      },
+      "targets": [
+        {
+          "expr": "count(ALERTS{alertstate=\"firing\", severity=\"p2\"}) or vector(0)",
+          "instant": true
+        }
+      ]
     },
     {
       "id": 103,
       "title": "P3 Low",
       "type": "stat",
-      "gridPos": { "h": 3, "w": 6, "x": 12, "y": 0 },
-      "datasource": { "type": "prometheus", "uid": "prometheus" },
-      "options": { "reduceOptions": { "calcs": ["lastNotNull"] }, "colorMode": "background", "justifyMode": "center", "textMode": "value" },
-      "fieldConfig": { "defaults": { "mappings": [{ "type": "value", "options": { "0": { "text": "✅ OK", "color": "dark-green" } } }], "thresholds": { "mode": "absolute", "steps": [{ "color": "dark-green", "value": null }, { "color": "dark-blue", "value": 1 }] } } },
-      "targets": [{ "expr": "count(ALERTS{alertstate=\"firing\", severity=\"p3\"}) or vector(0)", "instant": true }]
+      "gridPos": {
+        "h": 3,
+        "w": 6,
+        "x": 12,
+        "y": 0
+      },
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "options": {
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ]
+        },
+        "colorMode": "background",
+        "justifyMode": "center",
+        "textMode": "value"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "mappings": [
+            {
+              "type": "value",
+              "options": {
+                "0": {
+                  "text": "✅ OK",
+                  "color": "dark-green"
+                }
+              }
+            }
+          ],
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "dark-green",
+                "value": null
+              },
+              {
+                "color": "dark-blue",
+                "value": 1
+              }
+            ]
+          }
+        }
+      },
+      "targets": [
+        {
+          "expr": "count(ALERTS{alertstate=\"firing\", severity=\"p3\"}) or vector(0)",
+          "instant": true
+        }
+      ]
     },
     {
       "id": 104,
       "title": "5xx Rate",
       "type": "stat",
-      "gridPos": { "h": 3, "w": 6, "x": 18, "y": 0 },
-      "datasource": { "type": "prometheus", "uid": "prometheus" },
-      "options": { "reduceOptions": { "calcs": ["lastNotNull"] }, "colorMode": "background", "justifyMode": "center", "textMode": "value" },
-      "fieldConfig": { "defaults": { "unit": "percentunit", "thresholds": { "mode": "absolute", "steps": [{ "color": "dark-green", "value": null }, { "color": "dark-red", "value": 0.05 }] } } },
-      "targets": [{ "expr": "sum(rate(nginx_http_requests_total{status=~\"5..\"}[2m])) / sum(rate(nginx_http_requests_total[2m]))", "instant": true }]
+      "gridPos": {
+        "h": 3,
+        "w": 6,
+        "x": 18,
+        "y": 0
+      },
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "options": {
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ]
+        },
+        "colorMode": "background",
+        "justifyMode": "center",
+        "textMode": "value"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "percentunit",
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "dark-green",
+                "value": null
+              },
+              {
+                "color": "dark-red",
+                "value": 0.05
+              }
+            ]
+          }
+        }
+      },
+      "targets": [
+        {
+          "expr": "sum(rate(nginx_http_requests_total{status=~\"5..\"}[2m])) / sum(rate(nginx_http_requests_total[2m]))",
+          "instant": true
+        }
+      ]
     },
     {
       "id": 1,
       "title": "Top Error Groups (last 24 h)",
       "description": "Top 20 nginx error patterns extracted via regexp named capture group (?P<err>). Click a row to drill into raw logs in Panel 3.",
       "type": "table",
-      "gridPos": { "h": 10, "w": 24, "x": 0, "y": 3 },
-      "datasource": { "type": "loki", "uid": "loki" },
+      "gridPos": {
+        "h": 10,
+        "w": 24,
+        "x": 0,
+        "y": 3
+      },
+      "datasource": {
+        "type": "loki",
+        "uid": "loki"
+      },
       "options": {
         "showHeader": true,
-        "sortBy": [{ "displayName": "Count", "desc": true }],
+        "sortBy": [
+          {
+            "displayName": "Count",
+            "desc": true
+          }
+        ],
         "cellHeight": "sm",
-        "footer": { "show": true, "reducer": ["sum"], "fields": ["Count"], "countRows": false, "enablePagination": false }
+        "footer": {
+          "show": true,
+          "reducer": [
+            "sum"
+          ],
+          "fields": [
+            "Count"
+          ],
+          "countRows": false,
+          "enablePagination": false
+        }
       },
       "fieldConfig": {
         "defaults": {
-          "custom": { "align": "auto", "displayMode": "auto", "filterable": true, "inspect": false },
-          "thresholds": { "mode": "absolute", "steps": [{ "color": "green", "value": null }, { "color": "yellow", "value": 50 }, { "color": "red", "value": 200 }] }
+          "custom": {
+            "align": "auto",
+            "displayMode": "auto",
+            "filterable": true,
+            "inspect": false
+          },
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              },
+              {
+                "color": "yellow",
+                "value": 50
+              },
+              {
+                "color": "red",
+                "value": 200
+              }
+            ]
+          }
         },
         "overrides": [
-          { "matcher": { "id": "byName", "options": "Count" }, "properties": [{ "id": "custom.displayMode", "value": "color-background" }, { "id": "custom.width", "value": 100 }, { "id": "thresholds", "value": { "mode": "absolute", "steps": [{ "color": "green", "value": null }, { "color": "yellow", "value": 50 }, { "color": "red", "value": 200 }] } }] },
-          { "matcher": { "id": "byName", "options": "Error Pattern" }, "properties": [{ "id": "custom.width", "value": 600 }, { "id": "links", "value": [{ "title": "View logs for this error", "url": "/d/${__dashboard.uid}/error-groups?var-platform=${__data.fields.Platform}&var-err=${__data.fields[\"Error Pattern\"]}&panelId=3&orgId=1", "targetBlank": false }] }] },
-          { "matcher": { "id": "byName", "options": "Platform" }, "properties": [{ "id": "custom.width", "value": 120 }] },
-          { "matcher": { "id": "byName", "options": "Environment" }, "properties": [{ "id": "custom.width", "value": 120 }] }
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "Count"
+            },
+            "properties": [
+              {
+                "id": "custom.displayMode",
+                "value": "color-background"
+              },
+              {
+                "id": "custom.width",
+                "value": 100
+              },
+              {
+                "id": "thresholds",
+                "value": {
+                  "mode": "absolute",
+                  "steps": [
+                    {
+                      "color": "green",
+                      "value": null
+                    },
+                    {
+                      "color": "yellow",
+                      "value": 50
+                    },
+                    {
+                      "color": "red",
+                      "value": 200
+                    }
+                  ]
+                }
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "Error Pattern"
+            },
+            "properties": [
+              {
+                "id": "custom.width",
+                "value": 600
+              },
+              {
+                "id": "links",
+                "value": [
+                  {
+                    "title": "View logs for this error",
+                    "url": "/d/${__dashboard.uid}/error-groups?var-platform=${__data.fields.Platform}&var-err=${__data.fields[\"Error Pattern\"]}&panelId=3&orgId=1",
+                    "targetBlank": false
+                  }
+                ]
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "Platform"
+            },
+            "properties": [
+              {
+                "id": "custom.width",
+                "value": 120
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "Environment"
+            },
+            "properties": [
+              {
+                "id": "custom.width",
+                "value": 120
+              }
+            ]
+          }
         ]
       },
       "targets": [
         {
           "refId": "A",
-          "datasource": { "type": "loki", "uid": "loki" },
+          "datasource": {
+            "type": "loki",
+            "uid": "loki"
+          },
           "expr": "topk(20, sum by (err, platform, environment) (count_over_time({level=\"error\", platform=~\"$platform\", environment=~\"$environment\"} | regexp \"\\\\[error\\\\].*?:\\\\s*\\\\*\\\\d+\\\\s+(?P<err>.*)\" [24h])))",
-          "instant": true, "legendFormat": "", "queryType": "instant"
+          "instant": true,
+          "legendFormat": "",
+          "queryType": "instant"
         }
       ],
       "transformations": [
-        { "id": "labelsToFields", "options": { "mode": "columns" } },
-        { "id": "organize", "options": { "renameByName": { "err": "Error Pattern", "platform": "Platform", "environment": "Environment", "Value": "Count", "Time": "Sampled At" }, "indexByName": { "Error Pattern": 0, "Platform": 1, "Environment": 2, "Count": 3 }, "excludeByName": { "Sampled At": true } } }
+        {
+          "id": "labelsToFields",
+          "options": {
+            "mode": "columns"
+          }
+        },
+        {
+          "id": "organize",
+          "options": {
+            "renameByName": {
+              "err": "Error Pattern",
+              "platform": "Platform",
+              "environment": "Environment",
+              "Value": "Count",
+              "Time": "Sampled At"
+            },
+            "indexByName": {
+              "Error Pattern": 0,
+              "Platform": 1,
+              "Environment": 2,
+              "Count": 3
+            },
+            "excludeByName": {
+              "Sampled At": true
+            }
+          }
+        }
       ]
     },
     {
@@ -102,11 +443,59 @@
       "title": "Error Volume by Platform (7 days)",
       "description": "Count of matched nginx ERROR log lines per platform over 7 days. Uses $__interval so resolution adapts as you zoom.",
       "type": "timeseries",
-      "gridPos": { "h": 9, "w": 24, "x": 0, "y": 13 },
-      "datasource": { "type": "loki", "uid": "loki" },
-      "options": { "tooltip": { "mode": "multi", "sort": "desc" }, "legend": { "displayMode": "table", "placement": "right", "showLegend": true, "calcs": ["sum", "max", "mean"] } },
-      "fieldConfig": { "defaults": { "custom": { "lineWidth": 2, "fillOpacity": 10, "gradientMode": "opacity", "showPoints": "never", "spanNulls": false }, "unit": "short", "color": { "mode": "palette-classic" } } },
-      "targets": [{ "refId": "A", "datasource": { "type": "loki", "uid": "loki" }, "expr": "sum by (platform) (count_over_time({level=\"error\", platform=~\"$platform\", environment=~\"$environment\"} | regexp \"\\\\[error\\\\].*?:\\\\s*\\\\*\\\\d+\\\\s+(?P<err>.*)\" [$__interval]))", "legendFormat": "{{platform}}", "queryType": "range" }],
+      "gridPos": {
+        "h": 9,
+        "w": 24,
+        "x": 0,
+        "y": 13
+      },
+      "datasource": {
+        "type": "loki",
+        "uid": "loki"
+      },
+      "options": {
+        "tooltip": {
+          "mode": "multi",
+          "sort": "desc"
+        },
+        "legend": {
+          "displayMode": "table",
+          "placement": "right",
+          "showLegend": true,
+          "calcs": [
+            "sum",
+            "max",
+            "mean"
+          ]
+        }
+      },
+      "fieldConfig": {
+        "defaults": {
+          "custom": {
+            "lineWidth": 2,
+            "fillOpacity": 10,
+            "gradientMode": "opacity",
+            "showPoints": "never",
+            "spanNulls": false
+          },
+          "unit": "short",
+          "color": {
+            "mode": "palette-classic"
+          }
+        }
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "loki",
+            "uid": "loki"
+          },
+          "expr": "sum by (platform) (count_over_time({level=\"error\", platform=~\"$platform\", environment=~\"$environment\"} | regexp \"\\\\[error\\\\].*?:\\\\s*\\\\*\\\\d+\\\\s+(?P<err>.*)\" [$__interval]))",
+          "legendFormat": "{{platform}}",
+          "queryType": "range"
+        }
+      ],
       "timeFrom": "now-7d"
     },
     {
@@ -114,10 +503,165 @@
       "title": "Log Drill-Down",
       "description": "Raw nginx error log lines filtered by the error pattern selected in the table above. Populated via data link — set ?panelId=3 in the URL to jump here.",
       "type": "logs",
-      "gridPos": { "h": 10, "w": 24, "x": 0, "y": 22 },
-      "datasource": { "type": "loki", "uid": "loki" },
-      "options": { "dedupStrategy": "none", "enableLogDetails": true, "prettifyLogMessage": false, "showCommonLabels": true, "showLabels": true, "showTime": true, "sortOrder": "Descending", "wrapLogMessage": true },
-      "targets": [{ "refId": "A", "datasource": { "type": "loki", "uid": "loki" }, "expr": "{level=\"error\", platform=~\"${platform:pipe}\", environment=~\"$environment\"} | regexp \"\\\\[error\\\\].*?:\\\\s*\\\\*\\\\d+\\\\s+(?P<err>.*)\" |= \"$err\"", "legendFormat": "", "queryType": "range", "maxLines": 500 }]
+      "gridPos": {
+        "h": 10,
+        "w": 24,
+        "x": 0,
+        "y": 22
+      },
+      "datasource": {
+        "type": "loki",
+        "uid": "loki"
+      },
+      "options": {
+        "dedupStrategy": "none",
+        "enableLogDetails": true,
+        "prettifyLogMessage": false,
+        "showCommonLabels": true,
+        "showLabels": true,
+        "showTime": true,
+        "sortOrder": "Descending",
+        "wrapLogMessage": true
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "loki",
+            "uid": "loki"
+          },
+          "expr": "{level=\"error\", platform=~\"${platform:pipe}\", environment=~\"$environment\"} | regexp \"\\\\[error\\\\].*?:\\\\s*\\\\*\\\\d+\\\\s+(?P<err>.*)\" |= \"$err\"",
+          "legendFormat": "",
+          "queryType": "range",
+          "maxLines": 500
+        }
+      ]
+    },
+    {
+      "id": 15,
+      "title": "Performance Analysis",
+      "type": "row",
+      "gridPos": {
+        "h": 1,
+        "w": 24,
+        "x": 0,
+        "y": 31
+      },
+      "collapsed": false,
+      "panels": []
+    },
+    {
+      "id": 10,
+      "title": "Latency Percentiles (P50, P75, P95, P99)",
+      "type": "timeseries",
+      "gridPos": {
+        "h": 9,
+        "w": 24,
+        "x": 0,
+        "y": 32
+      },
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "targets": [
+        {
+          "expr": "histogram_quantile(0.50, sum by (le) (rate(nginx_request_duration_ms_bucket{platform=~\"$platform\", environment=~\"$environment\"}[$__rate_interval])))",
+          "legendFormat": "P50",
+          "refId": "A"
+        },
+        {
+          "expr": "histogram_quantile(0.75, sum by (le) (rate(nginx_request_duration_ms_bucket{platform=~\"$platform\", environment=~\"$environment\"}[$__rate_interval])))",
+          "legendFormat": "P75",
+          "refId": "B"
+        },
+        {
+          "expr": "histogram_quantile(0.95, sum by (le) (rate(nginx_request_duration_ms_bucket{platform=~\"$platform\", environment=~\"$environment\"}[$__rate_interval])))",
+          "legendFormat": "P95",
+          "refId": "C"
+        },
+        {
+          "expr": "histogram_quantile(0.99, sum by (le) (rate(nginx_request_duration_ms_bucket{platform=~\"$platform\", environment=~\"$environment\"}[$__rate_interval])))",
+          "legendFormat": "P99",
+          "refId": "D"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "ms",
+          "custom": {
+            "drawStyle": "line",
+            "fillOpacity": 10,
+            "gradientMode": "opacity",
+            "lineWidth": 2
+          }
+        }
+      }
+    },
+    {
+      "id": 11,
+      "title": "Top 10 Slowest Pages (last 5m)",
+      "type": "table",
+      "gridPos": {
+        "h": 10,
+        "w": 12,
+        "x": 0,
+        "y": 41
+      },
+      "datasource": {
+        "type": "loki",
+        "uid": "loki"
+      },
+      "targets": [
+        {
+          "expr": "topk(10, avg by (uri) (avg_over_time({platform=~\"$platform\", environment=~\"$environment\"} | unwrap total_ms [$__interval])))",
+          "instant": true,
+          "queryType": "instant",
+          "refId": "A"
+        }
+      ],
+      "options": {
+        "showHeader": true,
+        "sortBy": [
+          {
+            "displayName": "Value",
+            "desc": true
+          }
+        ]
+      }
+    },
+    {
+      "id": 12,
+      "title": "URL Response Time Heatmap",
+      "type": "heatmap",
+      "gridPos": {
+        "h": 10,
+        "w": 12,
+        "x": 12,
+        "y": 41
+      },
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "targets": [
+        {
+          "expr": "sum by (le) (rate(nginx_request_duration_ms_bucket{platform=~\"$platform\", environment=~\"$environment\"}[$__rate_interval]))",
+          "format": "heatmap",
+          "legendFormat": "{{le}}",
+          "refId": "A"
+        }
+      ],
+      "options": {
+        "calculate": false,
+        "color": {
+          "mode": "scheme",
+          "scheme": "Oranges"
+        },
+        "yAxis": {
+          "unit": "ms"
+        }
+      }
     }
   ],
   "refresh": "1m",
@@ -125,15 +669,81 @@
   "templating": {
     "list": [
       {
-        "current": {}, "datasource": { "type": "loki", "uid": "loki" }, "definition": "label_values({level=\"error\"}, platform)", "hide": 0, "includeAll": true, "allValue": ".+", "label": "Platform", "multi": true, "name": "platform", "options": [], "query": { "label": "platform", "refId": "LokiVariableQueryEditor-VariableQuery", "stream": "{level=\"error\"}", "type": 1 }, "refresh": 2, "regex": "", "sort": 1, "type": "query"
+        "current": {},
+        "datasource": {
+          "type": "loki",
+          "uid": "loki"
+        },
+        "definition": "label_values({level=\"error\"}, platform)",
+        "hide": 0,
+        "includeAll": true,
+        "allValue": ".+",
+        "label": "Platform",
+        "multi": true,
+        "name": "platform",
+        "options": [],
+        "query": {
+          "label": "platform",
+          "refId": "LokiVariableQueryEditor-VariableQuery",
+          "stream": "{level=\"error\"}",
+          "type": 1
+        },
+        "refresh": 2,
+        "regex": "",
+        "sort": 1,
+        "type": "query"
       },
       {
-        "current": {}, "datasource": { "type": "loki", "uid": "loki" }, "definition": "label_values({level=\"error\"}, environment)", "hide": 0, "includeAll": true, "allValue": ".+", "label": "Environment", "multi": false, "name": "environment", "options": [], "query": { "label": "environment", "refId": "LokiVariableQueryEditor-VariableQuery", "stream": "{level=\"error\"}", "type": 1 }, "refresh": 2, "regex": "", "sort": 1, "type": "query"
+        "current": {},
+        "datasource": {
+          "type": "loki",
+          "uid": "loki"
+        },
+        "definition": "label_values({level=\"error\"}, environment)",
+        "hide": 0,
+        "includeAll": true,
+        "allValue": ".+",
+        "label": "Environment",
+        "multi": false,
+        "name": "environment",
+        "options": [],
+        "query": {
+          "label": "environment",
+          "refId": "LokiVariableQueryEditor-VariableQuery",
+          "stream": "{level=\"error\"}",
+          "type": 1
+        },
+        "refresh": 2,
+        "regex": "",
+        "sort": 1,
+        "type": "query"
       },
-      { "current": { "selected": false, "text": "", "value": "" }, "hide": 2, "label": "Error pattern filter", "name": "err", "options": [{ "selected": true, "text": "", "value": "" }], "query": "", "skipUrlSync": false, "type": "textbox" }
+      {
+        "current": {
+          "selected": false,
+          "text": "",
+          "value": ""
+        },
+        "hide": 2,
+        "label": "Error pattern filter",
+        "name": "err",
+        "options": [
+          {
+            "selected": true,
+            "text": "",
+            "value": ""
+          }
+        ],
+        "query": "",
+        "skipUrlSync": false,
+        "type": "textbox"
+      }
     ]
   },
-  "time": { "from": "now-7d", "to": "now" },
+  "time": {
+    "from": "now-7d",
+    "to": "now"
+  },
   "timezone": "browser",
   "title": "Error Groups",
   "uid": "error-groups-v2"

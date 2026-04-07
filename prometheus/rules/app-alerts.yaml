@@ -74,6 +74,22 @@ groups:
           platform: "dev.regenics.com"
           environment: "production"
           grafana_dashboard: "http://192.168.29.25:3000/explore?orgId=1&left=%7B%22datasource%22:%22prometheus%22,%22queries%22:%5B%7B%22expr%22:%22histogram_quantile(0.95%2C%20sum(rate(nginx_http_request_duration_seconds_bucket%5B5m%5D))%20by%20(le))%22%7D%5D%7D"
+ 
+      # Slow pages alert (P95 per URL > 3000ms)
+      - alert: P2_SlowURLLatency
+        expr: |
+          histogram_quantile(0.95, sum by (le, uri) (rate(nginx_request_duration_ms_bucket[5m]))) > 3000
+        for: 5m
+        labels:
+          severity: p2
+          tier: high
+          service: nginx
+          source: prometheus
+        annotations:
+          summary: "⚠️ P95 response time exceeds 3,000ms for {{ $labels.uri }}"
+          description: "The 95th percentile of response time for '{{ $labels.uri }}' has been above 3,000ms for 5 minutes. Current P95: {{ $value }}ms."
+          platform: "dev.regenics.com"
+          environment: "production"
 
       # Upstream connection errors
       - alert: P2_UpstreamConnectionErrors
@@ -171,3 +187,18 @@ groups:
         annotations:
           summary: "🚨 Redis memory usage exceeds 90%"
           description: "Redis instance is using more than 90% of its max memory."
+
+      - alert: HighHTTP5xxRate
+        expr: |
+          sum(rate(nginx_http_requests_total{status=~"5.."}[2m]))
+          /
+          sum(rate(nginx_http_requests_total[2m])) > 0.05
+        for: 2m
+        labels:
+          severity: p1
+          service: nginx
+          remediation: dynamic_triage
+        annotations:
+          summary: "High HTTP 5xx error rate detected"
+          description: "More than 5% of requests are failing with 5xx errors"
+

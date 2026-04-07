@@ -6,6 +6,9 @@ import datetime
 import signal
 import sys
 from http.server import BaseHTTPRequestHandler, HTTPServer
+import urllib.request
+import urllib.parse
+import time
 
 PORT = int(os.environ.get("WEBHOOK_PORT", 5001))
 REMEDIATION_DIR = os.environ.get("REMEDIATION_DIR", "/opt/monitoring/remediate")
@@ -50,6 +53,56 @@ def run_remediation(script_name):
     except Exception as e:
         log_message(f"REMEDIATION_DISPATCH SCRIPT=\"{script_name}\" STATUS=\"FAILED\" ERROR=\"{e}\"")
 
+def fetch_loki_logs(query, minutes=5):
+    end_time = int(time.time() * 10**9)
+    start_time = end_time - (minutes * 60 * 10**9)
+    url = f"http://loki:3100/loki/api/v1/query_range?query={urllib.parse.quote(query)}&start={start_time}&end={end_time}&limit=500"
+    try:
+        req = urllib.request.Request(url)
+        with urllib.request.urlopen(req) as response:
+            data = json.loads(response.read().decode('utf-8'))
+            logs = []
+            if data.get('status') == 'success':
+                result = data.get('data', {}).get('result', [])
+                for stream in result:
+                    for val in stream.get('values', []):
+                        logs.append(val[1])
+            return logs
+    except Exception as e:
+        log_message(f"DYNAMIC_TRIAGE ERROR=\"Loki fetch failed: {e}\"")
+        return []
+
+def run_dynamic_triage():
+    log_message("DYNAMIC_TRIAGE STATUS=\"START\"")
+    # Fetch logs
+    q1 = '{platform="nginx"} | json | __error__="" | status >= 500'
+    q2 = '{level="error"}'
+    logs = fetch_loki_logs(q1) + fetch_loki_logs(q2)
+    
+    script_to_run = "generic_triage"
+    matched_pattern = "none match"
+    
+    # Pattern detection
+    patterns = {
+        "upstream timed out": "restart_upstream",
+        "connect() failed": "validate_network",
+        "PHP Fatal error": "restart_php_fpm",
+        "MySQL server has gone away": "check_db",
+        "slow quer": "check_db"
+    }
+    
+    for log_line in logs:
+        for pattern, script in patterns.items():
+            if pattern in log_line:
+                script_to_run = script
+                matched_pattern = pattern
+                break
+        if matched_pattern != "none match":
+            break
+            
+    log_message(f"DYNAMIC_TRIAGE PATTERN=\"{matched_pattern}\" SCRIPT=\"{script_to_run}\"")
+    run_remediation(script_to_run)
+
 class WebhookHandler(BaseHTTPRequestHandler):
     def do_GET(self):
         if self.path == '/healthz':
@@ -85,9 +138,13 @@ class WebhookHandler(BaseHTTPRequestHandler):
                         if auto_remediate == 'false':
                             log_message(f"WEBHOOK_SKIP SCRIPT=\"{remediation}\" REASON=\"AUTO_REMEDIATE=false\"")
                         else:
-                            # Run each script in a background thread
-                            thread = threading.Thread(target=run_remediation, args=(remediation,))
-                            thread.start()
+                            if remediation == "dynamic_triage":
+                                thread = threading.Thread(target=run_dynamic_triage)
+                                thread.start()
+                            else:
+                                # Run each script in a background thread
+                                thread = threading.Thread(target=run_remediation, args=(remediation,))
+                                thread.start()
 
             self.send_response(200)
             self.end_headers()

@@ -1,0 +1,53 @@
+server:
+  http_listen_port: 9080
+  grpc_listen_port: 0
+
+positions:
+  filename: /tmp/positions.yaml
+
+clients:
+  - url: http://loki:3100/loki/api/v1/push
+
+scrape_configs:
+  - job_name: nginx-access
+    static_configs:
+      - targets:
+          - localhost
+        labels:
+          job: nginx-access
+          platform: "dev-regenics"
+          environment: "production"
+          __path__: /var/log/nginx/access.log
+
+    pipeline_stages:
+      # Try JSON first, then fallback to Regex for standard combined format
+      - json:
+          expressions:
+            status:
+            uri:
+            request_time:
+      
+      # If JSON parsing above failed, try regex
+      # NOTE: This regex assumes you have added $request_time to the end of your Nginx log format
+      - regex:
+          expression: '^(?P<remote_addr>[\d\.]+) - (?P<remote_user>[^\s]+) \[(?P<time_local>[^\]]+)\] "(?P<method>\w+) (?P<uri>[^\s?]+)(?P<query>[^\s]*) (?P<protocol>[^"]+)" (?P<status>\d+) (?P<body_bytes_sent>\d+) "(?P<referer>[^"]*)" "(?P<user_agent>[^"]*)" (?P<request_time>[\d\.]+)$'
+
+      # Extract uri and status as labels
+      - labels:
+          status:
+          uri:
+
+      # Convert request_time (s) to total_ms (ms)
+      # We use template to ensure it's a number and scaled
+      - template:
+          name: total_ms
+          template: '{{ if .request_time }}{{ mul (atof .request_time) 1000 }}{{ else }}0{{ end }}'
+
+      # Metrics extraction
+      - metrics:
+          nginx_request_duration_ms:
+            type: Histogram
+            description: "nginx request duration in milliseconds"
+            source: total_ms
+            config:
+              buckets: [50, 100, 250, 500, 1000, 3000, 5000, 10000]

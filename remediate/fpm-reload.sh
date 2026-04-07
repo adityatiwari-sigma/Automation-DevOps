@@ -7,12 +7,11 @@ FPM_STATUS_URL="http://$REMOTE_IP/fpm-status?json"
 SERVICE_NAME="php8.4-fpm"
 SSH_CMD="ssh -o StrictHostKeyChecking=no root@$REMOTE_IP"
 
-# 1. Exit 0 immediately if AUTO_REMEDIATE=false
 if [ "${AUTO_REMEDIATE}" = "false" ]; then
     exit 0
 fi
 
-# 2. Hit status page on remote server with Host header
+
 STATUS_JSON=$(curl -s -H "Host: dev.regenics.com" "$FPM_STATUS_URL")
 if [ $? -ne 0 ]; then
     echo "$(date '+%Y-%m-%d %H:%M:%S') TRIGGER=\"fpm-reload\" ACTION=\"check-status\" STATUS=\"FAILED\" REASON=\"curl failed to $REMOTE_IP\"" >> "$LOG_FILE"
