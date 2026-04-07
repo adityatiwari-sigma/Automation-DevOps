@@ -1,18 +1,13 @@
-# ============================================================
-# LOKI ALERTING RULES  —  Categorized by Platform/Service
-# ============================================================
 groups:
-
   # ────────────────────────────────────────────────────────────
   # P1 — CRITICAL / IMMEDIATE
   # ────────────────────────────────────────────────────────────
   - name: p1-critical-log-alerts
     interval: 1m
     rules:
-      # Fatal error in checkout / payment / cart / order flow (Any Platform)
       - alert: P1_CheckoutPaymentFatal
         expr: |
-          sum(count_over_time({platform=~"nginx|php-fpm|mysql|wordpress|laravel"} |~ `(?i)(fatal|emergency|critical)` |~ `(?i)(checkout|payment|cart|order|billing|invoice)` [2m])) > 0
+          sum(count_over_time({platform=~"nginx|php-fpm|mysql|wordpress|laravel"} |~ `(?i)(fatal|emergency|critical)` |~ `(?i)(/checkout|/payment/|/cart|/order|/billing|/invoice)` [5m])) > 0
         for: 0m
         labels:
           severity: p1
@@ -21,7 +16,7 @@ groups:
         annotations:
           summary: "🚨 FATAL error in checkout/payment flow"
           description: "A fatal error was detected in the {{ $labels.platform }} logs related to checkout/payment."
-          grafana_dashboard: "http://192.168.29.25:3000/d/error-groups-v2"
+          grafana_dashboard: "http://10.10.2.77:3000/d/error-groups-v2"
 
   # ────────────────────────────────────────────────────────────
   # P2 — HIGH / WITHIN 1 HOUR
@@ -29,25 +24,23 @@ groups:
   - name: p2-high-log-alerts
     interval: 1m
     rules:
-      # PHP/WordPress/Laravel Fatal Errors
       - alert: P2_AppFatalRateHigh
         expr: |
-          sum by (platform) (count_over_time({platform=~"php-fpm|wordpress|laravel"} |~ `(?i)(php\s*(fatal|parse)\s*error|fatal\s*error.*php|call\s+to\s+undefined|allowed\s+memory\s+size\s+exhausted)` [1m])) > 10
-        for: 1m
+          sum by (platform) (count_over_time({platform=~"php-fpm|wordpress|laravel"} |~ `(?i)(php\s*(fatal|parse)\s*error|fatal\s*error.*php|call\s+to\s+undefined|allowed\s+memory\s+size\s+exhausted)` !~ `(?i)(/checkout|/payment/|/cart)` [5m])) > 0
+        for: 0m
         labels:
           severity: p2
           tier: high
           source: loki
         annotations:
           summary: "⚠️ High Fatal Error Rate on {{ $labels.platform }}"
-          description: "Platform {{ $labels.platform }} is experiencing more than 10 fatal errors per minute."
-          grafana_dashboard: "http://192.168.29.25:3000/d/error-groups-v2"
+          description: "Platform {{ $labels.platform }} is reporting fatal errors."
+          grafana_dashboard: "http://10.10.2.77:3000/d/error-groups-v2"
 
-      # MySQL Slow Queries or Errors
       - alert: P2_MySQLIssuesHigh
         expr: |
-          sum(count_over_time({platform="mysql"} |~ `(?i)(error|slow\s*query|lock\s+time|table.*is\s+full|access\s+denied)` [1m])) > 5
-        for: 1m
+          sum(count_over_time({platform="mysql"} |~ `(?i)(error|slow\s*query|lock\s+time|table.*is\s+full|access\s+denied)` [5m])) > 0
+        for: 0m
         labels:
           severity: p2
           tier: high
@@ -55,19 +48,18 @@ groups:
         annotations:
           summary: "⚠️ MySQL Error/Slow-Query Spike"
           description: "Database platform is reporting elevated errors or slow queries."
-          grafana_dashboard: "http://192.168.29.25:3000/d/error-groups-v2"
+          grafana_dashboard: "http://10.10.2.77:3000/d/error-groups-v2"
 
   # ────────────────────────────────────────────────────────────
   # P3 — LOW / DAILY DIGEST
   # ────────────────────────────────────────────────────────────
   - name: p3-low-log-alerts
-    interval: 5m
+    interval: 1m
     rules:
-      # General Warnings across platforms
       - alert: P3_PlatformWarningRateElevated
         expr: |
-          sum by (platform) (count_over_time({platform=~"nginx|php-fpm|mysql|wordpress|laravel"} |~ `(?i)(warning|notice|deprecated)` [5m])) > 50
-        for: 10m
+          sum by (platform) (count_over_time({platform=~"nginx|php-fpm|mysql|wordpress|laravel"} |~ `(?i)(warning|notice|deprecated)` [5m])) > 0
+        for: 0m
         labels:
           severity: p3
           tier: low
@@ -75,19 +67,4 @@ groups:
         annotations:
           summary: "ℹ️ Elevated Warning Rate on {{ $labels.platform }}"
           description: "Review warnings for {{ $labels.platform }} in the daily digest."
-
-  # ────────────────────────────────────────────────────────────
-  # AUTO-REMEDIATION — LOG ALERTS
-  # ────────────────────────────────────────────────────────────
-  - name: auto-remediation-log-alerts
-    rules:
-      - alert: NginxTooManyOpenFiles
-        expr: |
-          count_over_time({job="nginx"} |= "too many open files" [2m]) > 5
-        for: 0m
-        labels:
-          severity: p1
-          remediation: nginx-file-limit
-        annotations:
-          summary: "🚨 Nginx 'too many open files' detected"
-          description: "More than 5 'too many open files' errors in Nginx logs within 2 minutes."
+          grafana_dashboard: "http://10.10.2.77:3000/d/error-groups-v2"

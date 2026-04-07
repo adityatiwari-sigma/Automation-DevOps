@@ -30,10 +30,10 @@ templates:
 # ────────────────────────────────────────────────────────────
 route:
   receiver: "default-email"
-  group_by: ["alertname", "severity", "service"]
+  group_by: ["alertname", "severity", "platform"]
   group_wait: 30s
   group_interval: 5m
-  repeat_interval: 24h          # default fallback (P3-level)
+  repeat_interval: 4h          # default fallback (P3-level)
 
   routes:
     # ── AUTO-REMEDIATION: dispatch to webhook ──
@@ -66,9 +66,9 @@ route:
     - match:
         severity: p3
       receiver: "p3-daily"
-      group_wait: 5m
-      group_interval: 30m
-      repeat_interval: 24h       # cooldown: 24 hours
+      group_wait: 15s            # Reduced for faster testing (was 5m)
+      group_interval: 1m
+      repeat_interval: 5m        # Reduced for testing (was 24h)
       continue: false
 
 # ────────────────────────────────────────────────────────────
@@ -100,31 +100,6 @@ receivers:
         headers:
           Subject: '🚨 [P1-CRITICAL] {{ .GroupLabels.alertname }} — IMMEDIATE ACTION'
 
-    # ── PagerDuty for P1 ──
-    # UPDATE: Replace with your actual PagerDuty integration key
-    # pagerduty_configs:
-    #   - service_key: "<YOUR_PAGERDUTY_SERVICE_KEY>"
-    #     severity: critical
-    #     description: '{{ .GroupLabels.alertname }}: {{ .CommonAnnotations.summary }}'
-    #     details:
-    #       platform: '{{ .CommonAnnotations.platform }}'
-    #       environment: '{{ .CommonAnnotations.environment }}'
-    #       dashboard: '{{ .CommonAnnotations.grafana_dashboard }}'
-
-    # ── Slack for P1 (optional) ──
-    # UPDATE: Replace with your actual Slack webhook URL
-    # slack_configs:
-    #   - api_url: "https://hooks.slack.com/services/YOUR/SLACK/WEBHOOK"
-    #     channel: "#p1-critical-alerts"
-    #     title: '🚨 P1 CRITICAL — {{ .GroupLabels.alertname }}'
-    #     text: >-
-    #       *Summary:* {{ .CommonAnnotations.summary }}
-    #       *Platform:* {{ .CommonAnnotations.platform }}
-    #       *Environment:* {{ .CommonAnnotations.environment }}
-    #       *Error:* {{ .CommonAnnotations.error_sample }}
-    #       *Dashboard:* {{ .CommonAnnotations.grafana_dashboard }}
-    #     send_resolved: true
-
   # ── P2: Email only ──
   - name: "p2-high"
     email_configs:
@@ -150,23 +125,23 @@ receivers:
 # ────────────────────────────────────────────────────────────
 inhibit_rules:
 
-  # P1 firing → suppress P2 for same service
+  # P1 firing → suppress P2 for same platform
   - source_match:
       severity: p1
     target_match:
       severity: p2
-    equal: ["service"]
+    equal: ["platform"]
 
-  # P1 firing → suppress P3 for same service
+  # P1 firing → suppress P3 for same platform
   - source_match:
       severity: p1
     target_match:
       severity: p3
-    equal: ["service"]
+    equal: ["platform"]
 
-  # P2 firing → suppress P3 for same service
+  # P2 firing → suppress P3 for same platform
   - source_match:
       severity: p2
     target_match:
       severity: p3
-    equal: ["service"]
+    equal: ["platform"]

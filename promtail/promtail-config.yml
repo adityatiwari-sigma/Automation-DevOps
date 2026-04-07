@@ -1,53 +1,191 @@
 server:
   http_listen_port: 9080
-  grpc_listen_port: 0
 
 positions:
-  filename: /tmp/positions.yaml
+  filename: /var/log/promtail/positions.yaml
 
 clients:
-  - url: http://loki:3100/loki/api/v1/push
+  - url: http://10.10.2.77:3100/loki/api/v1/push
 
 scrape_configs:
-  - job_name: nginx-access
-    static_configs:
-      - targets:
-          - localhost
-        labels:
-          job: nginx-access
-          platform: "dev-regenics"
-          environment: "production"
-          __path__: /var/log/nginx/access.log
-
-    pipeline_stages:
-      # Try JSON first, then fallback to Regex for standard combined format
-      - json:
-          expressions:
-            status:
-            uri:
-            request_time:
-      
-      # If JSON parsing above failed, try regex
-      # NOTE: This regex assumes you have added $request_time to the end of your Nginx log format
-      - regex:
-          expression: '^(?P<remote_addr>[\d\.]+) - (?P<remote_user>[^\s]+) \[(?P<time_local>[^\]]+)\] "(?P<method>\w+) (?P<uri>[^\s?]+)(?P<query>[^\s]*) (?P<protocol>[^"]+)" (?P<status>\d+) (?P<body_bytes_sent>\d+) "(?P<referer>[^"]*)" "(?P<user_agent>[^"]*)" (?P<request_time>[\d\.]+)$'
-
-      # Extract uri and status as labels
-      - labels:
+# 🔹 NGINX
+- job_name: nginx
+  static_configs:
+    - targets: [localhost]
+      labels:
+        platform: nginx
+        environment: prod
+        __path__: /var/log/nginx/*.log
+  pipeline_stages:
+    # 1. Identify log file name
+    - regex:
+        source: filename
+        expression: '.*/(?P<log_type>[^/]+)\.log'
+    # 2. Extract Response Time and Status from JSON logs
+    - json:
+        expressions:
           status:
           uri:
-
-      # Convert request_time (s) to total_ms (ms)
-      # We use template to ensure it's a number and scaled
-      - template:
-          name: total_ms
-          template: '{{ if .request_time }}{{ mul (atof .request_time) 1000 }}{{ else }}0{{ end }}'
-
-      # Metrics extraction
-      - metrics:
-          nginx_request_duration_ms:
-            type: Histogram
-            description: "nginx request duration in milliseconds"
-            source: total_ms
-            config:
-              buckets: [50, 100, 250, 500, 1000, 3000, 5000, 10000]
+          latency: response_time_ms
+    # 3. Apply labels for Prometheus graphs
+    - labels:
+        log_type:
+        status:
+        uri:
+    # 4. Create Histogram (Buckets adjusted for raw seconds: 0.1s, 0.5s, 1s, etc.)
+    - metrics:
+        nginx_request_duration_ms:
+          type: Histogram
+          description: "nginx request duration"
+          source: latency
+          config:
+            buckets: [0.05, 0.1, 0.25, 0.5, 1, 2.5, 5, 10]
+ 
+    # 5. Masking and Label Formatting
+    - replace:
+        source: log_type
+        expression: 'access'
+        replace: 'nginx-access'
+    - replace:
+        source: log_type
+        expression: 'error'
+        replace: 'nginx-error'
+    - labels:
+        log_type:
+    - replace:
+        expression: '\b\d{1,3}(\.\d{1,3}){3}\b'
+        replace: 'MASKED_IP'
+    - replace:
+        expression: '[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-z]{2,}'
+        replace: 'MASKED_EMAIL'
+    - regex:
+        expression: '(?i)(?P<level>error|warn|info|debug|fatal)'
+    - labels:
+        level:
+ 
+# 🔹 PHP-FPM
+- job_name: php-fpm
+  static_configs:
+    - targets: [localhost]
+      labels:
+        platform: php-fpm
+        environment: prod
+        __path__: /var/log/php*-fpm.log
+  pipeline_stages:
+    - regex:
+        source: filename
+        expression: '.*/(?P<log_type>[^/]+)\.log'
+    - labels:
+        log_type:
+    - regex:
+        expression: '(?i)(?P<level>error|warn|notice|debug)'
+    - labels:
+        level:
+ 
+# 🔹 LARAVEL
+- job_name: laravel
+  static_configs:
+    - targets: [localhost]
+      labels:
+        platform: laravel
+        environment: prod
+        __path__: /var/www/*/storage/logs/*.log
+  pipeline_stages:
+    - regex:
+        source: filename
+        expression: '.*/(?P<log_type>[^/]+)\.log'
+    - replace:
+        source: log_type
+        expression: 'laravel'
+        replace: 'laravel-app'
+    - labels:
+        log_type:
+    - replace:
+        expression: '[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-z]{2,}'
+        replace: 'MASKED_EMAIL'
+    - regex:
+        expression: '(?i)(?P<level>error|warning|info|debug|critical)'
+    - labels:
+        level:
+ 
+# 🔹 WORDPRESS
+- job_name: wordpress
+  static_configs:
+    - targets: [localhost]
+      labels:
+        platform: wordpress
+        environment: prod
+        __path__: /var/www/*/wp-content/debug.log
+  pipeline_stages:
+    - regex:
+        source: filename
+        expression: '.*/(?P<log_type>[^/]+)\.log'
+    - replace:
+        source: log_type
+        expression: 'debug'
+        replace: 'wordpress-debug'
+    - labels:
+        log_type:
+    - replace:
+        expression: '[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-z]{2,}'
+        replace: 'MASKED_EMAIL'
+    - regex:
+        expression: '(?i)(?P<level>error|warning|notice|debug)'
+    - labels:
+        level:
+ 
+# 🔹 MYSQL
+- job_name: mysql
+  static_configs:
+    - targets: [localhost]
+      labels:
+        platform: mysql
+        environment: prod
+        __path__: /var/log/mysql/*.log
+  pipeline_stages:
+    - regex:
+        source: filename
+        expression: '.*/(?P<log_type>[^/]+)\.log'
+    - labels:
+        log_type:
+    - regex:
+        expression: '(?i)(?P<level>error|warning|note|info)'
+    - labels:
+        level:
+ 
+# 🔹 MAGENTO
+- job_name: magento
+  static_configs:
+    - targets: [localhost]
+      labels:
+        platform: adobe-commerce
+        environment: prod
+        __path__: /var/www/*/var/log/*.log
+  pipeline_stages:
+    - regex:
+        source: filename
+        expression: '.*/(?P<log_type>[^/]+)\.log'
+    - replace:
+        source: log_type
+        expression: 'system'
+        replace: 'magento-system'
+    - replace:
+        source: log_type
+        expression: 'exception'
+        replace: 'magento-exception'
+    - replace:
+        source: log_type
+        expression: 'debug'
+        replace: 'magento-debug'
+    - labels:
+        log_type:
+    - replace:
+        expression: '\b\d{1,3}(\.\d{1,3}){3}\b'
+        replace: 'MASKED_IP'
+    - replace:
+        expression: '[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-z]{2,}'
+        replace: 'MASKED_EMAIL'
+    - regex:
+        expression: '(?i)(?P<level>error|critical|warning|notice|info|debug)'
+    - labels:
+        level:
