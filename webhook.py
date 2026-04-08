@@ -23,8 +23,10 @@ def get_env_var(var_name):
     if os.path.exists(env_path):
         with open(env_path, "r") as f:
             for line in f:
-                if line.startswith(f"{var_name}="):
-                    return line.split("=", 1)[1].strip().strip('"').strip("'")
+                if "=" in line and not line.strip().startswith("#"):
+                    k, v = line.split("=", 1)
+                    if k.strip() == var_name:
+                        return v.strip().strip('"').strip("'").split("#")[0].strip()
     return os.environ.get(var_name)
 
 def send_email(subject, body):
@@ -66,22 +68,27 @@ def is_auto_remediate_enabled():
 
 app = Flask(__name__)
 
-def log_remediation(trigger, platform, diagnosis, action, status, duration, evidence):
-    """Writes a production-ready structured log entry."""
+def log_remediation(trigger, platform, diagnosis, action, status, duration, evidence, is_rca=False):
+    """Writes a production-ready structured log entry with visual RCA blocks."""
     timestamp = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
-    # Use JSON for evidence to keep it one-line but readable
     evidence_clean = evidence.replace('\n', ' | ').replace('"', "'")
-    log_line = (
-        f"{timestamp} "
-        f"TRIGGER=\"{trigger}\" "
-        f"PLATFORM=\"{platform}\" "
-        f"DIAGNOSIS=\"{diagnosis}\" "
-        f"ACTION=\"{action}\" "
-        f"STATUS=\"{status}\" "
-        f"DURATION=\"{duration}s\" "
-        f"EVIDENCE=\"{evidence_clean}\"\n"
-    )
+    
     with open(LOG_FILE, "a") as f:
+        if is_rca:
+            f.write("--------------------------------------------------------\n")
+            f.write(f"[{timestamp}] 🔍 GLOBAL RCA INVESTIGATION STARTED...\n")
+            # Resource snapshot is handled in the caller if needed
+        
+        log_line = (
+            f"{timestamp} "
+            f"TRIGGER=\"{trigger}\" "
+            f"PLATFORM=\"{platform}\" "
+            f"DIAGNOSIS=\"{diagnosis}\" "
+            f"ACTION=\"{action}\" "
+            f"STATUS=\"{status}\" "
+            f"DURATION=\"{duration}s\" "
+            f"EVIDENCE=\"{evidence_clean}\"\n"
+        )
         f.write(log_line)
         f.flush()
         os.fsync(f.fileno())
@@ -160,21 +167,26 @@ def process_alert(alert):
                 verification_output = f"Verification failed: {e}"
 
         # Build Summary Email
-        subject = f"✅ Incident Resolved: {remediation_task} on {platform}"
-        body = f"The incident that triggered '{remediation_task}' has been resolved.\n\n"
-        if history:
-            body += f"--- REMEDIATION DETAILS ---\n"
-            body += f"Trigger: {history.get('trigger')}\n"
-            body += f"Action Taken: {history.get('action')}\n"
-            body += f"Start Time: {history.get('start_time')}\n"
-            body += f"Duration: {history.get('duration')}s\n"
-            body += f"Remediation Status: {history.get('status')}\n\n"
-            body += f"--- INITIAL EVIDENCE ---\n"
-            body += f"{history.get('evidence')}\n\n"
+        alert_name = labels.get('alertname', 'Unknown Alert')
+        subject = f"✅ Incident Resolved: {alert_name} [{platform}]"
         
+        body = f"The incident '{alert_name}' has been successfully resolved.\n\n"
+        body += f"--- ROOT CAUSE ANALYSIS (RCA) ---\n"
+        if history:
+            body += f"Detection: {history.get('trigger')}\n"
+            body += f"Status: {history.get('status')}\n"
+            body += f"Evidence: {history.get('evidence')}\n\n"
+            
+            body += f"--- REMEDIATION ACTION ---\n"
+            body += f"Action: {history.get('action')}\n"
+            body += f"Execution Start: {history.get('start_time')}\n"
+            body += f"Total Duration: {history.get('duration')}s\n\n"
+        else:
+            body += "Remediation details were not recorded for this session, but recovery was confirmed.\n\n"
+
         body += f"--- POST-REMEDIATION VERIFICATION ---\n"
         body += f"{verification_output}\n\n"
-        body += f"System Status: RECOVERED\n"
+        body += f"Final System Status: RECOVERED\n"
         
         send_email(subject, body)
         log_remediation("resolution", platform, "System Recovered", "monitoring", "RESOLVED", 0, "Self-heal summary sent")
@@ -225,7 +237,7 @@ def process_alert(alert):
                 "platform": platform
             }
             
-            log_remediation(remediation_task, platform, diagnosis, remediation_task, exec_status, duration, result.stdout.strip())
+            log_remediation(remediation_task, platform, diagnosis, remediation_task, exec_status, duration, result.stdout.strip(), is_rca=True)
             # Do NOT send email here; wait for resolution
             
         except Exception as e:

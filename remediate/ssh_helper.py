@@ -23,7 +23,12 @@ try:
         # Fallback to key auth if no password provided
         client.connect(ip, username=user, timeout=10)
         
-    full_cmd = f"echo '{sudo_pw}' | sudo -S {command}" if sudo_pw and sudo_pw != "YOUR_SUDO_PASSWORD_IF_NEEDED" else command
+    if sudo_pw and sudo_pw != "YOUR_SUDO_PASSWORD_IF_NEEDED" and sudo_pw != "":
+        # Escape double quotes in the command for bash -c
+        escaped_command = command.replace('"', '\\"')
+        full_cmd = f"echo '{sudo_pw}' | sudo -S bash -c \"{escaped_command}\""
+    else:
+        full_cmd = command
     
     stdin, stdout, stderr = client.exec_command(full_cmd)
     
