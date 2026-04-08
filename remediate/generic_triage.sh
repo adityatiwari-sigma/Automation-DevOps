@@ -6,7 +6,8 @@
 # ============================================================
 
 # Configuration
-LOG_FILE="/home/adityatiwari/Documents/AOPS/auto-remediation.log"
+DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
+LOG_FILE="$(dirname "$DIR")/auto-remediation.log"
 LOKI_URL="http://localhost:3100/loki/api/v1/query_range"
 PROM_URL="http://localhost:9090/api/v1/query"
 
@@ -23,9 +24,8 @@ MEM_USAGE=$(curl -s -G "$PROM_URL" --data-urlencode 'query=(1 - (node_memory_Mem
 echo "[Resource Photo] CPU: $CPU_USAGE% | RAM: $MEM_USAGE%" >> "$LOG_FILE"
 
 # --- 2. Global Evidence Hunt (Loki) ---
-# Searching for HTTP 5xx or keyword errors
 QUERY="{platform=~\".+\"} |~ \"(?i)error|critical|fatal|oom|children|timeout|regenics|fail|refused| 500 | 502 | 504 \""
-START_TIME=$(date -u -d '30 minutes ago' '+%Y-%m-%dT%H:%M:%SZ')
+START_TIME=$(date -u -d '15 minutes ago' '+%Y-%m-%dT%H:%M:%SZ')
 
 EVIDENCE=$(curl -s -G "$LOKI_URL" \
     --data-urlencode "query=$QUERY" \
@@ -36,33 +36,38 @@ EVIDENCE_COUNT=$(echo "$EVIDENCE" | grep -v "^$" | wc -l)
 
 # --- 3. The Decision Matrix (RCA Action) ---
 
-# MATCH: HTTP Error Symptoms (The 500 search)
-# Using grep -P for word boundaries to catch 500 precisely
-if echo "$EVIDENCE" | grep -Eq " 500 | 502 | 504 |\"500\"|\"502\"|\"504\""; then
-    MATCHING_LOG=$(echo "$EVIDENCE" | grep -E " 500 | 502 | 504 " | head -n 1)
-    echo "[Confirmed] Root Cause: HTTP 5xx Symptom found. Log: $MATCHING_LOG" >> "$LOG_FILE"
-    
-    # Trigger the Evidence Capture for the Webhook
+# MATCH: Specific Raw Errors (Prioritized over generic 500s)
+if echo "$EVIDENCE" | grep -Ei "max_children|pm.max_children"; then
+    MATCHING_LOG=$(echo "$EVIDENCE" | grep -Ei "max_children|pm.max_children" | head -n 1)
+    echo "[Confirmed] Root Cause: PHP-FPM Worker Exhaustion: $MATCHING_LOG" >> "$LOG_FILE"
     echo "Evidence Found: $MATCHING_LOG"
-    
-    # FALLBACK REMEDIATION
-    echo "Triggering PHP-FPM reload to clear upstream errors..." >> "$LOG_FILE"
-    bash /home/adityatiwari/Documents/AOPS/remediate/fpm-reload.sh
+    bash "$DIR/fpm-reload.sh"
     exit 0
-fi
 
-# MATCH: Specific Raw Errors
-if echo "$EVIDENCE" | grep -Ei "too many open files|regenics_error|OOM killer|max_children"; then
-    MATCHING_LOG=$(echo "$EVIDENCE" | grep -Ei "too many open files|regenics_error|OOM killer|max_children" | head -n 1)
-    echo "[Confirmed] Critical System Error: $MATCHING_LOG" >> "$LOG_FILE"
+elif echo "$EVIDENCE" | grep -Ei "too many open files"; then
+    MATCHING_LOG=$(echo "$EVIDENCE" | grep -Ei "too many open files" | head -n 1)
+    echo "[Confirmed] Root Cause: Nginx File Descriptor Limit: $MATCHING_LOG" >> "$LOG_FILE"
     echo "Evidence Found: $MATCHING_LOG"
-    
-    bash /home/adityatiwari/Documents/AOPS/remediate/nginx-file-limit.sh
+    bash "$DIR/nginx-file-limit.sh"
+    exit 0
+
+elif echo "$EVIDENCE" | grep -Ei "OOM command not allowed|OOM killer"; then
+    MATCHING_LOG=$(echo "$EVIDENCE" | grep -Ei "OOM command not allowed|OOM killer" | head -n 1)
+    echo "[Confirmed] Root Cause: Redis/System Memory Pressure: $MATCHING_LOG" >> "$LOG_FILE"
+    echo "Evidence Found: $MATCHING_LOG"
+    bash "$DIR/redis-flush-cache.sh"
+    exit 0
+
+elif echo "$EVIDENCE" | grep -Eq " 500 | 502 | 504 |\"500\"|\"502\"|\"504\""; then
+    MATCHING_LOG=$(echo "$EVIDENCE" | grep -E " 500 | 502 | 504 " | head -n 1)
+    echo "[Confirmed] Root Cause: Generic HTTP 5xx Symptom. Log: $MATCHING_LOG" >> "$LOG_FILE"
+    echo "Evidence Found: $MATCHING_LOG"
+    echo "Triggering PHP-FPM reload as first-line defense..." >> "$LOG_FILE"
+    bash "$DIR/fpm-reload.sh"
     exit 0
 fi
 
 # FALLBACK (When no patterns match)
 TOP_SAMPLE=$(echo "$EVIDENCE" | head -n 1 | cut -c 1-100)
 echo "[Skipped] No pattern found. Top sample: $TOP_SAMPLE" >> "$LOG_FILE"
-# Send summary to webhook
 echo "No evidence matching remediation patterns found in $EVIDENCE_COUNT logs."

@@ -1,0 +1,26 @@
+# Credentials & Environment
+.env
+secret.json
+*.key
+*.pem
+
+# Logs
+*.log
+webhook.stdout.log
+webhook.stderr.log
+auto-remediation.log
+
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+venv/
+.venv/
+.env
+
+# System & IDE
+.DS_Store
+.vscode/
+.idea/
+*.swp
+*.bak

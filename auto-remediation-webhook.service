@@ -1,0 +1,16 @@
+[Unit]
+Description=AOPS Auto-Remediation Webhook
+After=network.target
+
+[Service]
+Type=simple
+User=adityatiwari
+WorkingDirectory=/home/adityatiwari/Documents/AOPS
+ExecStart=/usr/bin/python3 /home/adityatiwari/Documents/AOPS/webhook.py
+Restart=always
+RestartSec=5
+StandardOutput=append:/home/adityatiwari/Documents/AOPS/webhook.stdout.log
+StandardError=append:/home/adityatiwari/Documents/AOPS/webhook.stderr.log
+
+[Install]
+WantedBy=multi-user.target

@@ -2,52 +2,44 @@
  
 # ============================================================
 # ALERT TRIGGER SCRIPT FOR AIOPS STACK
-# This script simulates failures across Nginx, PHP, and MySQL
-# to verify P1, P2, and P3 alert routing.
+# This specifically generates logs that uniquely trigger
+# 1-to-1 matching remediation scripts securely via SSH.
 # ============================================================
  
 # --- Configuration ---
-NGINX_LOG="/var/log/nginx/access.log"
+NGINX_LOG="/var/log/nginx/error.log"
 PHP_LOG="/var/log/php8.4-fpm.log"      
-MYSQL_LOG="/var/log/mysql/mariadb-slow.log"      
+REDIS_LOG="/var/log/redis/redis-server.log"      
  
-# --- P1: Critical (Checkout/Payment Fatal) ---
-trigger_p1() {
-    echo "--- Triggering P1: Fatal Checkout Error ---"
-    echo "127.0.0.1 - - [$(date '+%d/%b/%Y:%H:%M:%S %z')] \"POST /api/v1/payment/checkout HTTP/1.1\" 500 0 \"-\" \"-\" 5.001 [FATAL] Payment gateway failed" >> "$NGINX_LOG"
-    echo "[DONE] P1 Alert should fire in < 1 min."
+trigger_fpm() {
+    echo "--- Triggering FPM Auto-Remediation (Specific) ---"
+    echo "[$(date '+%d-%b-%Y %H:%M:%S')] WARNING: [pool www] server reached pm.max_children setting (5), consider raising it" >> "$PHP_LOG"
+    echo "[DONE] FPM rule triggered."
 }
  
-# --- P2: High (General System Fatals/Slow Queries) ---
-trigger_p2() {
-    echo "--- Triggering P2: General PHP Fatal (Non-Checkout) ---"
-    for i in {1..12}; do
-        # We use 'account.php' instead of 'checkout.php' to avoid P1 collision
-        echo "[$(date '+%d-%b-%Y %H:%M:%S')] PHP Fatal error: Call to undefined function process_user() in /var/www/html/wp-content/plugins/core/account.php on line 10" >> "$PHP_LOG"
-    done
-    echo "[DONE] P2 Alert should fire in 1-2 mins."
+trigger_nginx() {
+    echo "--- Triggering Nginx Auto-Remediation (Specific) ---"
+    echo "$(date '+%Y/%m/%d %H:%M:%S') [crit] 1234#0: *123 open() \"/var/www/html/index.php\" failed (24: too many open files) while logging request" >> "$NGINX_LOG"
+    echo "[DONE] Nginx rule triggered."
 }
  
-# --- P3: Low (Warnings/Notices) ---
-trigger_p3() {
-    echo "--- Triggering P3: PHP Warnings/Notices ---"
-    for i in {1..5}; do
-        echo "[$(date '+%d-%b-%Y %H:%M:%S')] PHP Warning: disk_free_space(): Allowance exceeded in /var/www/html/index.php on line 5" >> "$PHP_LOG"
-    done
-    echo "[DONE] P3 Alert should fire (usually daily digest or low priority)."
+trigger_redis() {
+    echo "--- Triggering Redis Auto-Remediation (Specific) ---"
+    echo "1234:M $(date '+%d %b %Y %H:%M:%S.000') # OOM command not allowed when used memory > 'maxmemory'." >> "$REDIS_LOG"
+    echo "[DONE] Redis rule triggered."
 }
  
 # --- Main execution loop ---
 case "$1" in
-    p1) trigger_p1 ;;
-    p2) trigger_p2 ;;
-    p3) trigger_p3 ;;
+    fpm) trigger_fpm ;;
+    nginx) trigger_nginx ;;
+    redis) trigger_redis ;;
     all)
-        trigger_p1
-        trigger_p2
-        trigger_p3
+        trigger_fpm
+        trigger_nginx
+        trigger_redis
         ;;
     *)
-        echo "Usage: $0 {p1|p2|p3|all}"
+        echo "Usage: $0 {fpm|nginx|redis|all}"
         ;;
 esac

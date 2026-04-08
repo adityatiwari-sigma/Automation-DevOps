@@ -61,5 +61,5 @@ ruler:
       store: inmemory
   enable_api: true
   enable_alertmanager_v2: true
-  evaluation_interval: 1m
+  evaluation_interval: 15s
   poll_interval: 1m

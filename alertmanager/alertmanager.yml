@@ -4,7 +4,7 @@
 # ============================================================
 
 global:
-  resolve_timeout: 5m
+  resolve_timeout: 1m
 
   # ── SMTP settings for email notifications ──
   # UPDATE: Replace with your actual SMTP credentials
@@ -40,9 +40,9 @@ route:
     - match_re:
         remediation: ".+"
       receiver: "auto-remediation-webhook"
-      group_wait: 10s
+      group_wait: 1s
       group_interval: 1m
-      repeat_interval: 5m
+      repeat_interval: 10m
       continue: true
 
     # ── P1: CRITICAL  —  immediate escalation ──

@@ -1,13 +1,23 @@
 #!/bin/bash
 
 # Configuration
-LOG_FILE="/home/adityatiwari/Documents/AOPS/auto-remediation.log"
-REMOTE_IP="10.10.2.21"
+DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
+LOG_FILE="$(dirname "$DIR")/auto-remediation.log"
+ENV_FILE="$(dirname "$DIR")/.env"
+
+if [ -f "$ENV_FILE" ]; then
+    source "$ENV_FILE"
+fi
+
+REMOTE_IP="${REMOTE_IP:-10.10.2.21}"
+SSH_USER="${SSH_USER:-root}"
+SSH_PASSWORD="${SSH_PASSWORD:-}"
+SUDO_PASSWORD="${SUDO_PASSWORD:-}"
+
 REDIS_HOST="${REMOTE_IP}"
 REDIS_PORT="${REDIS_PORT:-6379}"
 REDIS_CACHE_DB="${REDIS_CACHE_DB:-0}"
 REDIS_SESSION_DB="${REDIS_SESSION_DB:-1}"
-SSH_CMD="ssh -o StrictHostKeyChecking=no root@$REMOTE_IP"
 
 # 1. Exit 0 immediately if AUTO_REMEDIATE=false
 if [ "${AUTO_REMEDIATE}" = "false" ]; then
@@ -33,7 +43,7 @@ MAX_MEMORY=$(echo "$MEM_INFO" | grep maxmemory: | cut -d: -f2 | tr -d '\r')
 
 # If maxmemory is 0, compare against /proc/meminfo MemTotal on REMOTE
 if [ -z "$MAX_MEMORY" ] || [ "$MAX_MEMORY" -eq 0 ]; then
-    MAX_MEMORY=$($SSH_CMD "grep MemTotal /proc/meminfo" | awk '{print $2 * 1024}')
+    MAX_MEMORY=$(python3 "$DIR/ssh_helper.py" "$REMOTE_IP" "$SSH_USER" "$SSH_PASSWORD" "$SUDO_PASSWORD" "grep MemTotal /proc/meminfo" | awk '{print $2 * 1024}')
 fi
 
 if [ -z "$USED_MEMORY" ] || [ -z "$MAX_MEMORY" ] || [ "$MAX_MEMORY" -eq 0 ]; then

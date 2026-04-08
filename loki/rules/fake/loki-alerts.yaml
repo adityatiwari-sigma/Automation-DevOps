@@ -1,5 +1,53 @@
 groups:
   # ────────────────────────────────────────────────────────────
+  # AUTO-REMEDIATION SPECIFIC ALERTS
+  # ────────────────────────────────────────────────────────────
+  - name: auto-remediation-rules
+    interval: 15s
+    rules:
+      - alert: FPM_WorkerPoolExhaustion
+        expr: |
+          sum(count_over_time({platform="php-fpm"} |~ "(?i)(server reached pm.max_children|max_children)" [1m])) > 0
+        for: 0m
+        labels:
+          severity: p1
+          tier: critical
+          source: loki
+          remediation: fpm-reload
+          platform: php-fpm
+        annotations:
+          summary: "🚨 PHP-FPM Worker Pool Exhausted"
+          description: "PHP-FPM max_children reached."
+
+      - alert: Nginx_TooManyOpenFiles
+        expr: |
+          sum(count_over_time({platform="nginx"} |~ "(?i)too many open files" [1m])) > 0
+        for: 0m
+        labels:
+          severity: p1
+          tier: critical
+          source: loki
+          remediation: nginx-file-limit
+          platform: nginx
+        annotations:
+          summary: "🚨 Nginx Too Many Open Files"
+          description: "Nginx has hit file descriptor limits."
+
+      - alert: Redis_Memory_High
+        expr: |
+          sum(count_over_time({platform="redis"} |~ "(?i)OOM command not allowed|OOM killer" [1m])) > 0
+        for: 0m
+        labels:
+          severity: p1
+          tier: critical
+          source: loki
+          remediation: redis-flush-cache
+          platform: redis
+        annotations:
+          summary: "🚨 Redis Memory Exhausted"
+          description: "Redis hit OOM threshold."
+
+  # ────────────────────────────────────────────────────────────
   # P1 — CRITICAL / IMMEDIATE
   # ────────────────────────────────────────────────────────────
   - name: p1-critical-log-alerts
@@ -7,7 +55,7 @@ groups:
     rules:
       - alert: P1_CheckoutPaymentFatal
         expr: |
-          sum(count_over_time({platform=~"nginx|php-fpm|mysql|wordpress|laravel"} |~ `(?i)(fatal|emergency|critical)` |~ `(?i)(/checkout|/payment/|/cart|/order|/billing|/invoice)` [5m])) > 0
+          sum(count_over_time({platform=~"nginx|php-fpm|mysql|wordpress|laravel"} |~ `(?i)(fatal|emergency|critical)` |~ `(?i)(/checkout|/payment/|/cart|/order|/billing|/invoice)` [1m])) > 0
         for: 0m
         labels:
           severity: p1
