@@ -91,6 +91,7 @@ scrape_configs:
   # ── Remote Promtail (dev.regenics.com — 10.10.2.21:9080) ──
   # Scrapes nginx_request_duration_ms metrics extracted from logs
   - job_name: "promtail-remote"
+    honor_labels: true
     static_configs:
       - targets: ["10.10.2.21:9080"]
         labels:

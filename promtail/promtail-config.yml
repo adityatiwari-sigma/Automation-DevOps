@@ -32,7 +32,12 @@ scrape_configs:
           description: "nginx request duration"
           source: latency
           config:
-            buckets: [0.05, 0.1, 0.25, 0.5, 1, 2.5, 5, 10]
+            buckets: [0.01, 0.05, 0.1, 0.25, 0.5, 1, 2.5, 5]
+            labels:
+              status:
+              uri:
+              platform:
+              environment:
 
 # 🔹 NGINX ERROR (Text)
 - job_name: nginx-error
