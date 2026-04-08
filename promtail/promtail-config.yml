@@ -15,24 +15,49 @@ scrape_configs:
       labels:
         platform: nginx
         log_type: nginx-access
+        type: perf
         environment: prod
-        __path__: /var/log/nginx/access.log
+        __path__: /var/log/nginx/*access.log
   pipeline_stages:
     - json:
         expressions:
           status:
           uri:
-          latency: response_time_ms
+          raw_duration: response_time_ms
+          raw_upstream: upstream_response_time
+    # Convert seconds → milliseconds (Nginx $request_time outputs seconds)
+    - template:
+        source: response_time_ms
+        template: '{{ if .raw_duration }}{{ mulf (float64 .raw_duration) 1000.0 }}{{ end }}'
+    - template:
+        source: upstream_time_ms
+        template: '{{ if and .raw_upstream (ne .raw_upstream "") (ne .raw_upstream "-") }}{{ mulf (float64 .raw_upstream) 1000.0 }}{{ end }}'
+    # Strip query strings from URI for metric labels (reduce cardinality)
+    - template:
+        source: uri
+        template: '{{ regexReplaceAll "\\?.*" .uri "" }}'
+    # Promote status and uri to Loki labels so they are available for metrics
     - labels:
         status:
         uri:
     - metrics:
         nginx_request_duration_ms:
           type: Histogram
-          description: "nginx request duration"
-          source: latency
+          description: "nginx request duration in milliseconds"
+          source: response_time_ms
           config:
-            buckets: [0.01, 0.05, 0.1, 0.25, 0.5, 1, 2.5, 5]
+            buckets: [5, 10, 25, 50, 100, 250, 500, 1000, 2500, 5000, 10000]
+            labels:
+              status:
+              uri:
+              platform:
+              environment:
+        nginx_upstream_duration_ms:
+          type: Histogram
+          description: "nginx upstream response time in milliseconds"
+          source: upstream_time_ms
+          config:
+            buckets: [5, 10, 25, 50, 100, 250, 500, 1000, 2500, 5000, 10000]
             labels:
               status:
               uri:
@@ -47,7 +72,7 @@ scrape_configs:
         platform: nginx
         log_type: nginx-error
         environment: prod
-        __path__: /var/log/nginx/error.log
+        __path__: /var/log/nginx/*error.log
   pipeline_stages:
     - regex:
         expression: '(?i)(?P<level>error|warn|info|debug|fatal|emergency|critical)'
@@ -89,14 +114,20 @@ scrape_configs:
   static_configs:
     - targets: [localhost]
       labels:
+        platform: laravel
+        log_type: laravel-app
         environment: prod
         __path__: /var/www/html/*/storage/logs/*.log
     - targets: [localhost]
       labels:
+        platform: wordpress
+        log_type: wordpress-debug
         environment: prod
         __path__: /var/www/*/wp-content/debug.log
     - targets: [localhost]
       labels:
+        platform: magento
+        log_type: magento-app
         environment: prod
         __path__: /var/www/*/var/log/*.log
   pipeline_stages:

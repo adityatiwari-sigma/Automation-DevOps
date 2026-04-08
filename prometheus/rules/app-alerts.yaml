@@ -71,8 +71,8 @@ groups:
           service: nginx
           source: prometheus
         annotations:
-          summary: "⚠️ P95 request latency exceeds 2 seconds"
-          description: "The 95th percentile of request latency has been above 2,000ms for 5 minutes. Current P95: {{ $value }}ms."
+          summary: "⚠️ P95 request latency exceeds 2000ms"
+          description: "The 95th percentile of request latency has been above 2000ms for 5 minutes. Current P95: {{ $value }}ms."
           platform: "dev.regenics.com"
           environment: "production"
           grafana_dashboard: "http://10.10.2.77:3000/d/error-groups-v2?orgId=1"
@@ -80,7 +80,7 @@ groups:
       # Slow pages alert (P95 per URL > 3000ms)
       - alert: P2_SlowURLLatency
         expr: |
-          histogram_quantile(0.95, sum by (le, uri) (rate(promtail_custom_nginx_request_duration_ms_bucket[5m]))) > 3
+          histogram_quantile(0.95, sum by (le, uri) (rate(promtail_custom_nginx_request_duration_ms_bucket[5m]))) > 3000
         for: 5m
         labels:
           severity: p2
@@ -88,8 +88,8 @@ groups:
           service: nginx
           source: prometheus
         annotations:
-          summary: "⚠️ P95 response time exceeds 3,000ms for {{ $labels.uri }}"
-          description: "The 95th percentile of response time for '{{ $labels.uri }}' has been above 3,000ms for 5 minutes. Current P95: {{ $value }}ms."
+          summary: "⚠️ P95 response time exceeds 3000ms for {{ $labels.uri }}"
+          description: "The 95th percentile of response time for '{{ $labels.uri }}' has been above 3000ms for 5 minutes. Current P95: {{ $value }}ms."
           platform: "dev.regenics.com"
           environment: "production"
 
