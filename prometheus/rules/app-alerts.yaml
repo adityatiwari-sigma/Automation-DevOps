@@ -63,7 +63,7 @@ groups:
       # High request latency (if histogram metrics available)
       - alert: P2_HighRequestLatency
         expr: |
-          histogram_quantile(0.95, sum(rate(promtail_custom_nginx_request_duration_ms_bucket[5m])) by (le)) > 2000
+          histogram_quantile(0.95, sum(rate(promtail_custom_nginx_request_duration_ms_bucket[5m])) by (le)) > 4500
         for: 5m
         labels:
           severity: p2
@@ -71,16 +71,16 @@ groups:
           service: nginx
           source: prometheus
         annotations:
-          summary: "⚠️ P95 request latency exceeds 2000ms"
-          description: "The 95th percentile of request latency has been above 2000ms for 5 minutes. Current P95: {{ $value }}ms."
+          summary: "⚠️ P95 request latency exceeds 4500ms"
+          description: "The 95th percentile of request latency has been above 4500ms for 5 minutes. Current P95: {{ $value }}ms."
           platform: "dev.regenics.com"
           environment: "production"
           grafana_dashboard: "http://10.10.2.77:3000/d/error-groups-v2?orgId=1"
  
-      # Slow pages alert (P95 per URL > 3000ms)
+      # Slow pages alert (P95 per URL > 4500ms)
       - alert: P2_SlowURLLatency
         expr: |
-          histogram_quantile(0.95, sum by (le, uri) (rate(promtail_custom_nginx_request_duration_ms_bucket[5m]))) > 3000
+          histogram_quantile(0.95, sum by (le, uri) (rate(promtail_custom_nginx_request_duration_ms_bucket[5m]))) > 4500
         for: 5m
         labels:
           severity: p2
@@ -88,8 +88,8 @@ groups:
           service: nginx
           source: prometheus
         annotations:
-          summary: "⚠️ P95 response time exceeds 3000ms for {{ $labels.uri }}"
-          description: "The 95th percentile of response time for '{{ $labels.uri }}' has been above 3000ms for 5 minutes. Current P95: {{ $value }}ms."
+          summary: "⚠️ P95 response time exceeds 4500ms for {{ $labels.uri }}"
+          description: "The 95th percentile of response time for '{{ $labels.uri }}' has been above 4500ms for 5 minutes. Current P95: {{ $value }}ms."
           platform: "dev.regenics.com"
           environment: "production"
 
