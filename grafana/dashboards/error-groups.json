@@ -601,7 +601,7 @@
     },
     {
       "id": 11,
-      "title": "Top 10 Slowest Pages (last 5m)",
+      "title": "Top 10 Slowest Pages (last 1h)",
       "type": "table",
       "gridPos": {
         "h": 10,
@@ -615,17 +615,45 @@
       },
       "targets": [
         {
-          "expr": "topk(10, avg by (uri) (avg_over_time({type=\"perf\", platform=~\"$platform\", environment=~\"$environment\"} | json | unwrap response_time_ms [$__interval]))) * 1000",
+          "expr": "topk(10, avg by (uri) (avg_over_time({type=\"perf\", platform=~\"$platform\", environment=~\"$environment\"} | json | unwrap response_time_ms [1h]))) * 1000",
           "instant": true,
           "queryType": "instant",
           "refId": "A"
         }
       ],
+      "transformations": [
+        {
+          "id": "labelsToFields",
+          "options": {
+            "mode": "columns"
+          }
+        },
+        {
+          "id": "organize",
+          "options": {
+            "excludeByName": {
+              "Time": true
+            },
+            "indexByName": {
+              "uri": 0,
+              "Value #A": 1
+            },
+            "renameByName": {
+              "Value #A": "Response Time (ms)",
+              "uri": "URL/Page"
+            }
+          }
+        }
+      ],
       "options": {
         "showHeader": true,
+        "cellHeight": "sm",
+        "footer": {
+          "show": false
+        },
         "sortBy": [
           {
-            "displayName": "Value",
+            "displayName": "Response Time (ms)",
             "desc": true
           }
         ]
