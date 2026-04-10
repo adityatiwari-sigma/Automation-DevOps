@@ -135,3 +135,25 @@ scrape_configs:
         expression: '(?i)(?P<level>error|warning|critical|fatal|notice|info|debug)'
     - labels:
         level:
+
+# 🔹 CORE WEB VITALS (RUM)
+- job_name: cwv-rum
+  static_configs:
+    - targets: [localhost]
+      labels:
+        job: cwv_rum
+        platform: "dev.regenics.com"
+        environment: "production"
+        __path__: /var/log/cwv/vitals.log
+  pipeline_stages:
+    - json:
+        expressions:
+          metric_name: name
+          metric_value: value
+          page_type: page_type
+          url: url
+          device: platform
+    - labels:
+        metric_name:
+        page_type:
+        device:

@@ -402,7 +402,7 @@
             "type": "loki",
             "uid": "loki"
           },
-          "expr": "topk(20, sum by (err, platform, environment) (count_over_time({level=\"error\", platform=~\"$platform\", environment=~\"$environment\"} | regexp \"\\\\[error\\\\].*?:\\\\s*\\\\*\\\\d+\\\\s+(?P<err>.*)\" [24h])))",
+          "expr": "topk(20, sum by (err, platform, environment) (count_over_time({level=~\"error|critical|fatal|emergency|err\", platform=~\"$platform\", environment=~\"$environment\"} | regexp \"^.*?(?:\\\\[error\\\\]|ERROR|[\\\\w.]+ERROR|Error|CRITICAL)\\\\s*(?:\\\\[[^\\\\]]+\\\\]\\\\s*)*[:]?\\\\s*(?:\\\\d+#\\\\d+:\\\\s+)?(?:\\\\*\\\\d+\\\\s+)?(?P<err>\\\\S.*?)(?:, (?:client|server|request|host|upstream):.*|$)\" [24h])))",
           "instant": true,
           "legendFormat": "",
           "queryType": "instant"
@@ -491,7 +491,7 @@
             "type": "loki",
             "uid": "loki"
           },
-          "expr": "sum by (platform) (count_over_time({level=\"error\", platform=~\"$platform\", environment=~\"$environment\"} | regexp \"\\\\[error\\\\].*?:\\\\s*\\\\*\\\\d+\\\\s+(?P<err>.*)\" [$__interval]))",
+          "expr": "sum by (platform) (count_over_time({level=~\"error|critical|fatal|emergency|err\", platform=~\"$platform\", environment=~\"$environment\"} | regexp \"^.*?(?:\\\\[error\\\\]|ERROR|[\\\\w.]+ERROR|Error|CRITICAL)\\\\s*(?:\\\\[[^\\\\]]+\\\\]\\\\s*)*[:]?\\\\s*(?:\\\\d+#\\\\d+:\\\\s+)?(?:\\\\*\\\\d+\\\\s+)?(?P<err>\\\\S.*?)(?:, (?:client|server|request|host|upstream):.*|$)\" [$__interval]))",
           "legendFormat": "{{platform}}",
           "queryType": "range"
         }
@@ -530,7 +530,7 @@
             "type": "loki",
             "uid": "loki"
           },
-          "expr": "{level=\"error\", platform=~\"${platform:pipe}\", environment=~\"$environment\"} | regexp \"\\\\[error\\\\].*?:\\\\s*\\\\*\\\\d+\\\\s+(?P<err>.*)\" |= \"$err\"",
+          "expr": "{level=~\"error|critical|fatal|emergency|err\", platform=~\"${platform:pipe}\", environment=~\"$environment\"} | regexp \"^.*?(?:\\\\[error\\\\]|ERROR|[\\\\w.]+ERROR|Error|CRITICAL)\\\\s*(?:\\\\[[^\\\\]]+\\\\]\\\\s*)*[:]?\\\\s*(?:\\\\d+#\\\\d+:\\\\s+)?(?:\\\\*\\\\d+\\\\s+)?(?P<err>\\\\S.*?)(?:, (?:client|server|request|host|upstream):.*|$)\" |= \"$err\"",
           "legendFormat": "",
           "queryType": "range",
           "maxLines": 500
