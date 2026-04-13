@@ -1,0 +1,430 @@
+{
+  "annotations": {
+    "list": [
+      {
+        "builtIn": 1,
+        "datasource": {
+          "type": "grafana",
+          "uid": "-- Grafana --"
+        },
+        "enable": true,
+        "hide": true,
+        "iconColor": "rgba(0, 211, 255, 1)",
+        "name": "Annotations & Alerts",
+        "type": "dashboard"
+      }
+    ]
+  },
+  "description": "Hardcoded dashboard for Regenics and CCS projects (Fixed anchored regex logic).",
+  "editable": true,
+  "fiscalYearStartMonth": 0,
+  "graphTooltip": 0,
+  "id": null,
+  "links": [],
+  "panels": [
+    {
+      "id": 100,
+      "title": "Error Logs per Project (Time Series)",
+      "type": "timeseries",
+      "gridPos": {
+        "h": 8,
+        "w": 24,
+        "x": 0,
+        "y": 0
+      },
+      "datasource": {
+        "type": "loki",
+        "uid": "loki"
+      },
+      "options": {
+        "tooltip": {
+          "mode": "multi",
+          "sort": "desc"
+        },
+        "legend": {
+          "displayMode": "table",
+          "placement": "right",
+          "calcs": ["sum"]
+        }
+      },
+      "fieldConfig": {
+        "defaults": {
+          "custom": {
+            "lineWidth": 2,
+            "fillOpacity": 15,
+            "spanNulls": false
+          },
+          "unit": "short",
+          "color": {
+            "mode": "palette-classic"
+          }
+        }
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "loki",
+            "uid": "loki"
+          },
+          "expr": "sum by (platform) (count_over_time({level=~\"(?i).*(error|critical|fatal|emergency|warn|err).*\", filename=~\"(?i).*regenics.*\"} [$__interval]))",
+          "refId": "A",
+          "legendFormat": "Regenics - {{platform}}"
+        },
+        {
+          "datasource": {
+            "type": "loki",
+            "uid": "loki"
+          },
+          "expr": "sum (count_over_time({level=~\"(?i).*(error|critical|fatal|emergency|warn|err).*\", platform=\"mysql\"} |~ \"(?i)regenics\" [$__interval]))",
+          "refId": "B",
+          "legendFormat": "Regenics - mysql"
+        },
+        {
+          "datasource": {
+            "type": "loki",
+            "uid": "loki"
+          },
+          "expr": "sum by (platform) (count_over_time({level=~\"(?i).*(error|critical|fatal|emergency|warn|err).*\", filename=~\"(?i).*(ccs|corporatecare).*\"} [$__interval]))",
+          "refId": "C",
+          "legendFormat": "CCS - {{platform}}"
+        },
+        {
+          "datasource": {
+            "type": "loki",
+            "uid": "loki"
+          },
+          "expr": "sum by (platform) (count_over_time({level=~\"(?i).*(error|critical|fatal|emergency|warn|err).*\", platform=\"php-fpm\"} [$__interval]))",
+          "refId": "D",
+          "legendFormat": "Shared - php-fpm"
+        }
+      ]
+    },
+    {
+      "id": 1,
+      "title": "Nginx Error Logs (Regenics)",
+      "type": "logs",
+      "timeFrom": "30d",
+      "gridPos": {
+        "h": 9,
+        "w": 12,
+        "x": 0,
+        "y": 8
+      },
+      "datasource": {
+        "type": "loki",
+        "uid": "loki"
+      },
+      "options": {
+        "dedupStrategy": "none",
+        "enableLogDetails": true,
+        "showTime": true,
+        "showLabels": true,
+        "sortOrder": "Descending",
+        "wrapLogMessage": true
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "loki",
+            "uid": "loki"
+          },
+          "expr": "{log_type=\"nginx-error\", filename=~\"(?i).*regenics.*\"}",
+          "refId": "A",
+          "maxLines": 5
+        }
+      ]
+    },
+    {
+      "id": 2,
+      "title": "Nginx Error Logs (CCS)",
+      "type": "logs",
+      "timeFrom": "30d",
+      "gridPos": {
+        "h": 9,
+        "w": 12,
+        "x": 12,
+        "y": 8
+      },
+      "datasource": {
+        "type": "loki",
+        "uid": "loki"
+      },
+      "options": {
+        "dedupStrategy": "none",
+        "enableLogDetails": true,
+        "showTime": true,
+        "showLabels": true,
+        "sortOrder": "Descending",
+        "wrapLogMessage": true
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "loki",
+            "uid": "loki"
+          },
+          "expr": "{log_type=\"nginx-error\", filename=~\"(?i).*(ccs|corporatecare).*\"}",
+          "refId": "A",
+          "maxLines": 5
+        }
+      ]
+    },
+    {
+      "id": 3,
+      "title": "MySQL Error Logs (Regenics)",
+      "type": "logs",
+      "timeFrom": "30d",
+      "gridPos": {
+        "h": 9,
+        "w": 12,
+        "x": 0,
+        "y": 17
+      },
+      "datasource": {
+        "type": "loki",
+        "uid": "loki"
+      },
+      "options": {
+        "dedupStrategy": "none",
+        "enableLogDetails": true,
+        "showTime": true,
+        "showLabels": true,
+        "sortOrder": "Descending",
+        "wrapLogMessage": true
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "loki",
+            "uid": "loki"
+          },
+          "expr": "{platform=\"mysql\", filename=~\"(?i).*error.*\"} |~ \"(?i)regenics\"",
+          "refId": "A",
+          "maxLines": 5
+        }
+      ]
+    },
+    {
+      "id": 4,
+      "title": "MySQL Error Logs (CCS)",
+      "type": "logs",
+      "timeFrom": "30d",
+      "gridPos": {
+        "h": 9,
+        "w": 12,
+        "x": 12,
+        "y": 17
+      },
+      "datasource": {
+        "type": "loki",
+        "uid": "loki"
+      },
+      "options": {
+        "dedupStrategy": "none",
+        "enableLogDetails": true,
+        "showTime": true,
+        "showLabels": true,
+        "sortOrder": "Descending",
+        "wrapLogMessage": true
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "loki",
+            "uid": "loki"
+          },
+          "expr": "{platform=\"mysql\", filename=~\"(?i).*(ccs|corporatecare).*error.*\"}",
+          "refId": "A",
+          "maxLines": 5
+        }
+      ]
+    },
+    {
+      "id": 8,
+      "title": "MySQL Slow Queries (Regenics)",
+      "type": "logs",
+      "timeFrom": "30d",
+      "gridPos": {
+        "h": 9,
+        "w": 12,
+        "x": 0,
+        "y": 26
+      },
+      "datasource": {
+        "type": "loki",
+        "uid": "loki"
+      },
+      "options": {
+        "dedupStrategy": "none",
+        "enableLogDetails": true,
+        "showTime": true,
+        "showLabels": true,
+        "sortOrder": "Descending",
+        "wrapLogMessage": true
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "loki",
+            "uid": "loki"
+          },
+          "expr": "{platform=\"mysql\", filename=~\"(?i).*slow.*\"} |~ \"(?i)regenics\"",
+          "refId": "A",
+          "maxLines": 5
+        }
+      ]
+    },
+    {
+      "id": 9,
+      "title": "MySQL Slow Queries (CCS)",
+      "type": "logs",
+      "timeFrom": "30d",
+      "gridPos": {
+        "h": 9,
+        "w": 12,
+        "x": 12,
+        "y": 26
+      },
+      "datasource": {
+        "type": "loki",
+        "uid": "loki"
+      },
+      "options": {
+        "dedupStrategy": "none",
+        "enableLogDetails": true,
+        "showTime": true,
+        "showLabels": true,
+        "sortOrder": "Descending",
+        "wrapLogMessage": true
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "loki",
+            "uid": "loki"
+          },
+          "expr": "{platform=\"mysql\", filename=~\"(?i).*(ccs|corporatecare).*slow.*\"}",
+          "refId": "A",
+          "maxLines": 5
+        }
+      ]
+    },
+    {
+      "id": 5,
+      "title": "App Logs: Wordpress (Regenics)",
+      "type": "logs",
+      "timeFrom": "30d",
+      "gridPos": {
+        "h": 9,
+        "w": 12,
+        "x": 0,
+        "y": 35
+      },
+      "datasource": {
+        "type": "loki",
+        "uid": "loki"
+      },
+      "options": {
+        "dedupStrategy": "none",
+        "enableLogDetails": true,
+        "showTime": true,
+        "showLabels": true,
+        "sortOrder": "Descending",
+        "wrapLogMessage": true
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "loki",
+            "uid": "loki"
+          },
+          "expr": "{platform=\"wordpress\", filename=~\"(?i).*regenics.*\"}",
+          "refId": "A",
+          "maxLines": 5
+        }
+      ]
+    },
+    {
+      "id": 6,
+      "title": "App Logs: Laravel (CCS)",
+      "type": "logs",
+      "timeFrom": "30d",
+      "gridPos": {
+        "h": 9,
+        "w": 12,
+        "x": 12,
+        "y": 35
+      },
+      "datasource": {
+        "type": "loki",
+        "uid": "loki"
+      },
+      "options": {
+        "dedupStrategy": "none",
+        "enableLogDetails": true,
+        "showTime": true,
+        "showLabels": true,
+        "sortOrder": "Descending",
+        "wrapLogMessage": true
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "loki",
+            "uid": "loki"
+          },
+          "expr": "{platform=\"laravel\"}",
+          "refId": "A",
+          "maxLines": 5
+        }
+      ]
+    },
+    {
+      "id": 7,
+      "title": "PHP-FPM Logs (Shared)",
+      "type": "logs",
+      "timeFrom": "30d",
+      "gridPos": {
+        "h": 8,
+        "w": 24,
+        "x": 0,
+        "y": 44
+      },
+      "datasource": {
+        "type": "loki",
+        "uid": "loki"
+      },
+      "options": {
+        "dedupStrategy": "none",
+        "enableLogDetails": true,
+        "showTime": true,
+        "showLabels": true,
+        "sortOrder": "Descending",
+        "wrapLogMessage": true
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "loki",
+            "uid": "loki"
+          },
+          "expr": "{platform=\"php-fpm\"}",
+          "refId": "A",
+          "maxLines": 5
+        }
+      ]
+    }
+  ],
+  "refresh": "5s",
+  "schemaVersion": 38,
+  "templating": {
+    "list": []
+  },
+  "time": {
+    "from": "now-1h",
+    "to": "now"
+  },
+  "timezone": "browser",
+  "title": "Project Logs (Regenics & CCS)",
+  "uid": "project-dashboard-v1"
+}
