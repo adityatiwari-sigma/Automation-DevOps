@@ -15,7 +15,7 @@
       }
     ]
   },
-  "description": "Hardcoded dashboard for Regenics and CCS projects (Fixed anchored regex logic).",
+  "description": "Hardcoded dashboard for Regenics and CCS projects (Added Embedded Drill-Down Panel & Variables).",
   "editable": true,
   "fiscalYearStartMonth": 0,
   "graphTooltip": 0,
@@ -100,6 +100,220 @@
       ]
     },
     {
+      "id": 10,
+      "title": "Top Error Groups (last 24 h)",
+      "description": "Top 20 error patterns aggregated globally. Click a row to drill down into the Logs directly below.",
+      "type": "table",
+      "gridPos": {
+        "h": 10,
+        "w": 24,
+        "x": 0,
+        "y": 8
+      },
+      "datasource": {
+        "type": "loki",
+        "uid": "loki"
+      },
+      "options": {
+        "showHeader": true,
+        "sortBy": [
+          {
+            "displayName": "Count",
+            "desc": true
+          }
+        ],
+        "cellHeight": "sm",
+        "footer": {
+          "show": true,
+          "reducer": [
+            "sum"
+          ],
+          "fields": [
+            "Count"
+          ],
+          "countRows": false,
+          "enablePagination": false
+        }
+      },
+      "fieldConfig": {
+        "defaults": {
+          "custom": {
+            "align": "auto",
+            "displayMode": "auto",
+            "filterable": true,
+            "inspect": false
+          },
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              },
+              {
+                "color": "yellow",
+                "value": 50
+              },
+              {
+                "color": "red",
+                "value": 200
+              }
+            ]
+          }
+        },
+        "overrides": [
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "Count"
+            },
+            "properties": [
+              {
+                "id": "custom.displayMode",
+                "value": "color-background"
+              },
+              {
+                "id": "custom.width",
+                "value": 100
+              },
+              {
+                "id": "thresholds",
+                "value": {
+                  "mode": "absolute",
+                  "steps": [
+                    {
+                      "color": "green",
+                      "value": null
+                    },
+                    {
+                      "color": "yellow",
+                      "value": 50
+                    },
+                    {
+                      "color": "red",
+                      "value": 200
+                    }
+                  ]
+                }
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "Error Pattern"
+            },
+            "properties": [
+              {
+                "id": "custom.width",
+                "value": 850
+              },
+              {
+                "id": "links",
+                "value": [
+                  {
+                    "title": "View full logs for this error pattern",
+                    "url": "/d/project-dashboard-v1?var-platform=${__data.fields.Platform}&var-err=${__data.fields[\"Error Pattern\"]}&viewPanel=11&orgId=1",
+                    "targetBlank": false
+                  }
+                ]
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "Platform"
+            },
+            "properties": [
+              {
+                "id": "custom.width",
+                "value": 150
+              }
+            ]
+          }
+        ]
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "loki",
+            "uid": "loki"
+          },
+          "expr": "topk(20, sum by (err, platform) (count_over_time({level=~\"(?i).*(error|critical|fatal|emergency|warn|err).*\"} | regexp \"^.*?(?:\\\\[error\\\\]|ERROR|[\\\\w.]+ERROR|Error|CRITICAL|\\\\[Warning\\\\]|Warning|WARN|Warn|\\\\[Warn\\\\])\\\\s*(?:\\\\[[^\\\\]]+\\\\]\\\\s*)*[:]?\\\\s*(?:\\\\d+#\\\\d+:\\\\s+)?(?:\\\\*\\\\d+\\\\s+)?(?P<err>\\\\S.*?)(?:, (?:client|server|request|host|upstream):.*|$)\" [24h])))",
+          "instant": true,
+          "legendFormat": "",
+          "queryType": "instant"
+        }
+      ],
+      "transformations": [
+        {
+          "id": "labelsToFields",
+          "options": {
+            "mode": "columns"
+          }
+        },
+        {
+          "id": "organize",
+          "options": {
+            "renameByName": {
+              "err": "Error Pattern",
+              "platform": "Platform",
+              "Value": "Count"
+            },
+            "indexByName": {
+              "Error Pattern": 0,
+              "Platform": 1,
+              "Count": 2
+            },
+            "excludeByName": {
+              "Time": true
+            }
+          }
+        }
+      ]
+    },
+    {
+      "id": 11,
+      "title": "Log Drill-Down Details",
+      "description": "Raw error log lines filtered by the pattern selected in the table above.",
+      "type": "logs",
+      "gridPos": {
+        "h": 10,
+        "w": 24,
+        "x": 0,
+        "y": 18
+      },
+      "datasource": {
+        "type": "loki",
+        "uid": "loki"
+      },
+      "options": {
+        "dedupStrategy": "none",
+        "enableLogDetails": true,
+        "prettifyLogMessage": false,
+        "showCommonLabels": true,
+        "showLabels": true,
+        "showTime": true,
+        "sortOrder": "Descending",
+        "wrapLogMessage": true
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "loki",
+            "uid": "loki"
+          },
+          "expr": "{level=~\"(?i).*(error|critical|fatal|emergency|warn|err).*\", platform=~\"${platform:pipe}\"} | regexp \"^.*?(?:\\\\[error\\\\]|ERROR|[\\\\w.]+ERROR|Error|CRITICAL|\\\\[Warning\\\\]|Warning|WARN|Warn|\\\\[Warn\\\\])\\\\s*(?:\\\\[[^\\\\]]+\\\\]\\\\s*)*[:]?\\\\s*(?:\\\\d+#\\\\d+:\\\\s+)?(?:\\\\*\\\\d+\\\\s+)?(?P<err>\\\\S.*?)(?:, (?:client|server|request|host|upstream):.*|$)\" |= \"$err\"",
+          "legendFormat": "",
+          "queryType": "range",
+          "maxLines": 500
+        }
+      ]
+    },
+    {
       "id": 1,
       "title": "Nginx Error Logs (Regenics)",
       "type": "logs",
@@ -108,7 +322,7 @@
         "h": 9,
         "w": 12,
         "x": 0,
-        "y": 8
+        "y": 28
       },
       "datasource": {
         "type": "loki",
@@ -143,7 +357,7 @@
         "h": 9,
         "w": 12,
         "x": 12,
-        "y": 8
+        "y": 28
       },
       "datasource": {
         "type": "loki",
@@ -178,7 +392,7 @@
         "h": 9,
         "w": 12,
         "x": 0,
-        "y": 17
+        "y": 37
       },
       "datasource": {
         "type": "loki",
@@ -213,7 +427,7 @@
         "h": 9,
         "w": 12,
         "x": 12,
-        "y": 17
+        "y": 37
       },
       "datasource": {
         "type": "loki",
@@ -248,7 +462,7 @@
         "h": 9,
         "w": 12,
         "x": 0,
-        "y": 26
+        "y": 46
       },
       "datasource": {
         "type": "loki",
@@ -283,7 +497,7 @@
         "h": 9,
         "w": 12,
         "x": 12,
-        "y": 26
+        "y": 46
       },
       "datasource": {
         "type": "loki",
@@ -318,7 +532,7 @@
         "h": 9,
         "w": 12,
         "x": 0,
-        "y": 35
+        "y": 55
       },
       "datasource": {
         "type": "loki",
@@ -353,7 +567,7 @@
         "h": 9,
         "w": 12,
         "x": 12,
-        "y": 35
+        "y": 55
       },
       "datasource": {
         "type": "loki",
@@ -388,7 +602,7 @@
         "h": 8,
         "w": 24,
         "x": 0,
-        "y": 44
+        "y": 64
       },
       "datasource": {
         "type": "loki",
@@ -418,7 +632,53 @@
   "refresh": "5s",
   "schemaVersion": 38,
   "templating": {
-    "list": []
+    "list": [
+      {
+        "current": {
+          "selected": false,
+          "text": "",
+          "value": ""
+        },
+        "hide": 2,
+        "label": "Error pattern filter",
+        "name": "err",
+        "options": [
+          {
+            "selected": true,
+            "text": "",
+            "value": ""
+          }
+        ],
+        "query": "",
+        "skipUrlSync": false,
+        "type": "textbox"
+      },
+      {
+        "current": {},
+        "datasource": {
+          "type": "loki",
+          "uid": "loki"
+        },
+        "definition": "label_values({level=~\"(?i).*(error|critical|fatal|emergency|warn|err).*\"}, platform)",
+        "hide": 0,
+        "includeAll": true,
+        "allValue": ".+",
+        "label": "Platform",
+        "multi": true,
+        "name": "platform",
+        "options": [],
+        "query": {
+          "label": "platform",
+          "refId": "LokiVariableQueryEditor-VariableQuery",
+          "stream": "{level=~\"(?i).*(error|critical|fatal|emergency|warn|err).*\"}",
+          "type": 1
+        },
+        "refresh": 2,
+        "regex": "",
+        "sort": 1,
+        "type": "query"
+      }
+    ]
   },
   "time": {
     "from": "now-1h",

@@ -75,6 +75,13 @@ scrape_configs:
         __path__: /var/log/nginx/*error.log
   pipeline_stages:
     - regex:
+        expression: '^(?P<time>\d{4}/\d{2}/\d{2}\s+\d{2}:\d{2}:\d{2})'
+    - timestamp:
+        source: time
+        format: '2006/01/02 15:04:05'
+        location: 'Local'
+        action_on_failure: skip
+    - regex:
         expression: '(?i)(?P<level>error|warn|info|debug|fatal|emergency|critical)'
     - labels:
         level:
@@ -90,6 +97,15 @@ scrape_configs:
         __path__: /var/log/php*-fpm.log
   pipeline_stages:
     - regex:
+        expression: '^\[(?P<time>\d{2}-[A-Za-z]+-\d{4}\s+\d{2}:\d{2}:\d{2}(?:\s+[A-Z]+)?)\]'
+    - timestamp:
+        source: time
+        format: '02-Jan-2006 15:04:05'
+        fallback_formats:
+          - '02-Jan-2006 15:04:05 MST'
+        location: 'Local'
+        action_on_failure: skip
+    - regex:
         expression: '(?i)(?P<level>error|warn|notice|debug|fatal)'
     - labels:
         level:
@@ -104,6 +120,15 @@ scrape_configs:
         environment: prod
         __path__: /var/log/mysql/*.log
   pipeline_stages:
+    - regex:
+        expression: '^(?P<time>\d{4}-\d{2}-\d{2}\s+\d{2}:\d{2}:\d{2}(?:\.\d+)?)'
+    - timestamp:
+        source: time
+        format: '2006-01-02 15:04:05'
+        fallback_formats:
+          - '2006-01-02 15:04:05.999999'
+        location: 'Local'
+        action_on_failure: skip
     - regex:
         expression: '(?i)(?P<level>error|warning|note|info)'
     - labels:
@@ -131,6 +156,13 @@ scrape_configs:
         environment: prod
         __path__: /var/www/*/var/log/*.log
   pipeline_stages:
+    - regex:
+        expression: '^\[(?P<time>\d{4}-\d{2}-\d{2}\s+\d{2}:\d{2}:\d{2})\]'
+    - timestamp:
+        source: time
+        format: '2006-01-02 15:04:05'
+        location: 'Local'
+        action_on_failure: skip
     - regex:
         expression: '(?i)(?P<level>error|warning|critical|fatal|notice|info|debug)'
     - labels:
