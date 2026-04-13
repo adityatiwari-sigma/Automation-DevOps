@@ -412,7 +412,7 @@
             "type": "loki",
             "uid": "loki"
           },
-          "expr": "{platform=\"mysql\", filename!~\"(?i).*slow.*\"}",
+          "expr": "{platform=\"mysql\", filename=~\"(?i).*/error\\\\.log$\"}",
           "refId": "A",
           "maxLines": 5
         }
@@ -447,7 +447,7 @@
             "type": "loki",
             "uid": "loki"
           },
-          "expr": "{platform=\"mysql\", filename!~\"(?i).*slow.*\"}",
+          "expr": "{platform=\"mysql\", filename=~\"(?i).*/ccs_error\\\\.log$\"}",
           "refId": "A",
           "maxLines": 5
         }
