@@ -79,7 +79,7 @@ scrape_configs:
     - timestamp:
         source: time
         format: '2006/01/02 15:04:05'
-        location: 'Local'
+        location: 'Asia/Kolkata'
         action_on_failure: skip
     - regex:
         expression: '(?i)(?P<level>error|warn|info|debug|fatal|emergency|critical)'
@@ -103,7 +103,7 @@ scrape_configs:
         format: '02-Jan-2006 15:04:05'
         fallback_formats:
           - '02-Jan-2006 15:04:05 MST'
-        location: 'Local'
+        location: 'Asia/Kolkata'
         action_on_failure: skip
     - regex:
         expression: '(?i)(?P<level>error|warn|notice|debug|fatal)'
@@ -127,7 +127,7 @@ scrape_configs:
         format: '2006-01-02 15:04:05'
         fallback_formats:
           - '2006-01-02 15:04:05.999999'
-        location: 'Local'
+        location: 'Asia/Kolkata'
         action_on_failure: skip
     - regex:
         expression: '(?i)(?P<level>error|warning|note|info)'
@@ -161,7 +161,7 @@ scrape_configs:
     - timestamp:
         source: time
         format: '2006-01-02 15:04:05'
-        location: 'Local'
+        location: 'Asia/Kolkata'
         action_on_failure: skip
     - regex:
         expression: '(?i)(?P<level>error|warning|critical|fatal|notice|info|debug)'

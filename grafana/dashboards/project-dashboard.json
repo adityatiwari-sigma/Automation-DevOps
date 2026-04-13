@@ -306,7 +306,7 @@
             "type": "loki",
             "uid": "loki"
           },
-          "expr": "{level=~\"(?i).*(error|critical|fatal|emergency|warn|err).*\", platform=~\"${platform:pipe}\"} | regexp \"^.*?(?:\\\\[error\\\\]|ERROR|[\\\\w.]+ERROR|Error|CRITICAL|\\\\[Warning\\\\]|Warning|WARN|Warn|\\\\[Warn\\\\])\\\\s*(?:\\\\[[^\\\\]]+\\\\]\\\\s*)*[:]?\\\\s*(?:\\\\d+#\\\\d+:\\\\s+)?(?:\\\\*\\\\d+\\\\s+)?(?P<err>\\\\S.*?)(?:, (?:client|server|request|host|upstream):.*|$)\" |= \"$err\"",
+          "expr": "{level=~\"(?i).*(error|critical|fatal|emergency|warn|err).*\", platform=~\"${platform:pipe}\"} | regexp \"^.*?(?:\\\\[error\\\\]|ERROR|[\\\\w.]+ERROR|Error|CRITICAL|\\\\[Warning\\\\]|Warning|WARN|Warn|\\\\[Warn\\\\])\\\\s*(?:\\\\[[^\\\\]]+\\\\]\\\\s*)*[:]?\\\\s*(?:\\\\d+#\\\\d+:\\\\s+)?(?:\\\\*\\\\d+\\\\s+)?(?P<err>\\\\S.*?)(?:, (?:client|server|request|host|upstream):.*|$)\" |= `${err}`",
           "legendFormat": "",
           "queryType": "range",
           "maxLines": 500
@@ -412,7 +412,7 @@
             "type": "loki",
             "uid": "loki"
           },
-          "expr": "{platform=\"mysql\", filename=~\"(?i).*error.*\"} |~ \"(?i)regenics\"",
+          "expr": "{platform=\"mysql\", filename!~\"(?i).*slow.*\"}",
           "refId": "A",
           "maxLines": 5
         }
@@ -447,7 +447,7 @@
             "type": "loki",
             "uid": "loki"
           },
-          "expr": "{platform=\"mysql\", filename=~\"(?i).*(ccs|corporatecare).*error.*\"}",
+          "expr": "{platform=\"mysql\", filename!~\"(?i).*slow.*\"}",
           "refId": "A",
           "maxLines": 5
         }
@@ -517,7 +517,7 @@
             "type": "loki",
             "uid": "loki"
           },
-          "expr": "{platform=\"mysql\", filename=~\"(?i).*(ccs|corporatecare).*slow.*\"}",
+          "expr": "{platform=\"mysql\", filename=~\"(?i).*slow.*\"} |~ \"(?i)(ccs|corporatecare)\"",
           "refId": "A",
           "maxLines": 5
         }
@@ -552,7 +552,7 @@
             "type": "loki",
             "uid": "loki"
           },
-          "expr": "{platform=\"wordpress\", filename=~\"(?i).*regenics.*\"}",
+          "expr": "{platform=\"wordpress\"}",
           "refId": "A",
           "maxLines": 5
         }
