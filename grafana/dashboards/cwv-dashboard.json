@@ -1,0 +1,507 @@
+{
+  "annotations": {
+    "list": [
+      {
+        "builtIn": 1,
+        "datasource": {
+          "type": "grafana",
+          "uid": "-- Grafana --"
+        },
+        "enable": true,
+        "hide": true,
+        "iconColor": "rgba(0, 211, 255, 1)",
+        "name": "Annotations & Alerts",
+        "type": "dashboard"
+      }
+    ]
+  },
+  "description": "Core Web Vitals Performance Monitoring (LCP, CLS, INP, FCP, TTFB)",
+  "editable": true,
+  "fiscalYearStartMonth": 0,
+  "graphTooltip": 1,
+  "id": null,
+  "links": [],
+  "panels": [
+    {
+      "id": 1,
+      "title": "Overall Performance Status (P75)",
+      "type": "row",
+      "gridPos": {
+        "h": 1,
+        "w": 24,
+        "x": 0,
+        "y": 0
+      },
+      "collapsed": false,
+      "panels": []
+    },
+    {
+      "id": 2,
+      "title": "LCP P75 (Largest Contentful Paint)",
+      "type": "gauge",
+      "gridPos": {
+        "h": 7,
+        "w": 4,
+        "x": 0,
+        "y": 1
+      },
+      "datasource": {
+        "type": "loki",
+        "uid": "loki"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "ms",
+          "min": 0,
+          "max": 5000,
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              { "color": "green", "value": null },
+              { "color": "yellow", "value": 2500 },
+              { "color": "red", "value": 4000 }
+            ]
+          }
+        }
+      },
+      "targets": [
+        {
+          "expr": "topk(10, quantile_over_time(0.75, {job=\"cwv_rum\", platform=~\"$platform\"} | json | label_format url=url | metric=\"LCP\" | unwrap value [$__range]) by (url))",
+          "legendFormat": "{{url}}"
+        }
+      ]
+    },
+    {
+      "id": 3,
+      "title": "INP P75 (Interaction to Next Paint)",
+      "type": "gauge",
+      "gridPos": {
+        "h": 7,
+        "w": 4,
+        "x": 4,
+        "y": 1
+      },
+      "datasource": {
+        "type": "loki",
+        "uid": "loki"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "ms",
+          "min": 0,
+          "max": 1000,
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              { "color": "green", "value": null },
+              { "color": "yellow", "value": 200 },
+              { "color": "red", "value": 500 }
+            ]
+          }
+        }
+      },
+      "targets": [
+        {
+          "expr": "topk(10, quantile_over_time(0.75, {job=\"cwv_rum\", platform=~\"$platform\"} | json | label_format url=url | metric=\"INP\" | unwrap value [$__range]) by (url))",
+          "legendFormat": "{{url}}"
+        }
+      ]
+    },
+    {
+      "id": 4,
+      "title": "CLS P75 (Cumulative Layout Shift)",
+      "type": "gauge",
+      "gridPos": {
+        "h": 7,
+        "w": 4,
+        "x": 8,
+        "y": 1
+      },
+      "datasource": {
+        "type": "loki",
+        "uid": "loki"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short",
+          "min": 0,
+          "max": 1,
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              { "color": "green", "value": null },
+              { "color": "yellow", "value": 0.1 },
+              { "color": "red", "value": 0.25 }
+            ]
+          }
+        }
+      },
+      "targets": [
+        {
+          "expr": "topk(10, quantile_over_time(0.75, {job=\"cwv_rum\", platform=~\"$platform\"} | json | label_format url=url | metric=\"CLS\" | unwrap value [$__range]) by (url))",
+          "legendFormat": "{{url}}"
+        }
+      ]
+    },
+    {
+      "id": 5,
+      "title": "FCP P75 (First Contentful Paint)",
+      "type": "gauge",
+      "gridPos": {
+        "h": 7,
+        "w": 4,
+        "x": 12,
+        "y": 1
+      },
+      "datasource": {
+        "type": "loki",
+        "uid": "loki"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "ms",
+          "min": 0,
+          "max": 4000,
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              { "color": "green", "value": null },
+              { "color": "yellow", "value": 1800 },
+              { "color": "red", "value": 3000 }
+            ]
+          }
+        }
+      },
+      "targets": [
+        {
+          "expr": "topk(10, quantile_over_time(0.75, {job=\"cwv_rum\", platform=~\"$platform\"} | json | label_format url=url | metric=\"FCP\" | unwrap value [$__range]) by (url))",
+          "legendFormat": "{{url}}"
+        }
+      ]
+    },
+    {
+      "id": 6,
+      "title": "TTFB P75 (Time to First Byte)",
+      "type": "gauge",
+      "gridPos": {
+        "h": 7,
+        "w": 4,
+        "x": 16,
+        "y": 1
+      },
+      "datasource": {
+        "type": "loki",
+        "uid": "loki"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "ms",
+          "min": 0,
+          "max": 3000,
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              { "color": "green", "value": null },
+              { "color": "yellow", "value": 800 },
+              { "color": "red", "value": 1800 }
+            ]
+          }
+        }
+      },
+      "targets": [
+        {
+          "expr": "topk(10, quantile_over_time(0.75, {job=\"cwv_rum\", platform=~\"$platform\"} | json | label_format url=url | metric=\"TTFB\" | unwrap value [$__range]) by (url))",
+          "legendFormat": "{{url}}"
+        }
+      ]
+    },
+    {
+      "id": 7,
+      "title": "Page Load Health Rate (% Good)",
+      "type": "gauge",
+      "gridPos": {
+        "h": 7,
+        "w": 4,
+        "x": 20,
+        "y": 1
+      },
+      "datasource": {
+        "type": "loki",
+        "uid": "loki"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "percentunit",
+          "min": 0,
+          "max": 1,
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              { "color": "red", "value": null },
+              { "color": "yellow", "value": 0.75 },
+              { "color": "green", "value": 0.9 }
+            ]
+          }
+        }
+      },
+      "targets": [
+        {
+          "expr": "sum(count_over_time({job=\"cwv_rum\", platform=~\"$platform\"} | json | rating=\"good\" [$__range])) / sum(count_over_time({job=\"cwv_rum\", platform=~\"$platform\"} [$__range]))",
+          "legendFormat": "Pass Rate"
+        }
+      ]
+    },
+    {
+      "id": 8,
+      "title": "Metric Trends (P75 over Time)",
+      "type": "row",
+      "gridPos": {
+        "h": 1,
+        "w": 24,
+        "x": 0,
+        "y": 8
+      },
+      "collapsed": false,
+      "panels": []
+    },
+    {
+      "id": 9,
+      "title": "LCP Trends (ms)",
+      "type": "timeseries",
+      "gridPos": { "h": 8, "w": 12, "x": 0, "y": 9 },
+      "datasource": { "type": "loki", "uid": "loki" },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "ms",
+          "custom": { "drawStyle": "line", "fillOpacity": 10, "lineWidth": 2 },
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              { "color": "green", "value": null },
+              { "color": "yellow", "value": 2500 },
+              { "color": "red", "value": 4000 }
+            ]
+          }
+        }
+      },
+      "targets": [
+        {
+          "expr": "quantile_over_time(0.75, {job=\"cwv_rum\", platform=~\"$platform\"} | json | metric=\"LCP\" | unwrap value [$__interval]) by (url)",
+          "legendFormat": "{{url}}"
+        }
+      ]
+    },
+    {
+      "id": 10,
+      "title": "FCP Trends (ms)",
+      "type": "timeseries",
+      "gridPos": { "h": 8, "w": 12, "x": 12, "y": 9 },
+      "datasource": { "type": "loki", "uid": "loki" },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "ms",
+          "custom": { "drawStyle": "line", "fillOpacity": 10, "lineWidth": 2 },
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              { "color": "green", "value": null },
+              { "color": "yellow", "value": 1800 },
+              { "color": "red", "value": 3000 }
+            ]
+          }
+        }
+      },
+      "targets": [
+        {
+          "expr": "quantile_over_time(0.75, {job=\"cwv_rum\", platform=~\"$platform\"} | json | metric=\"FCP\" | unwrap value [$__interval]) by (url)",
+          "legendFormat": "{{url}}"
+        }
+      ]
+    },
+    {
+      "id": 13,
+      "title": "INP Trends (ms)",
+      "type": "timeseries",
+      "gridPos": { "h": 8, "w": 12, "x": 0, "y": 17 },
+      "datasource": { "type": "loki", "uid": "loki" },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "ms",
+          "custom": { "drawStyle": "line", "fillOpacity": 10, "lineWidth": 2 },
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              { "color": "green", "value": null },
+              { "color": "yellow", "value": 200 },
+              { "color": "red", "value": 500 }
+            ]
+          }
+        }
+      },
+      "targets": [
+        {
+          "expr": "quantile_over_time(0.75, {job=\"cwv_rum\", platform=~\"$platform\"} | json | metric=\"INP\" | unwrap value [$__interval]) by (url)",
+          "legendFormat": "{{url}}"
+        }
+      ]
+    },
+    {
+      "id": 14,
+      "title": "TTFB Trends (ms)",
+      "type": "timeseries",
+      "gridPos": { "h": 8, "w": 12, "x": 12, "y": 17 },
+      "datasource": { "type": "loki", "uid": "loki" },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "ms",
+          "custom": { "drawStyle": "line", "fillOpacity": 10, "lineWidth": 2 },
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              { "color": "green", "value": null },
+              { "color": "yellow", "value": 800 },
+              { "color": "red", "value": 1800 }
+            ]
+          }
+        }
+      },
+      "targets": [
+        {
+          "expr": "quantile_over_time(0.75, {job=\"cwv_rum\", platform=~\"$platform\"} | json | metric=\"TTFB\" | unwrap value [$__interval]) by (url)",
+          "legendFormat": "{{url}}"
+        }
+      ]
+    },
+    {
+      "id": 11,
+      "title": "Per-Page Core Web Vitals Analysis",
+      "type": "row",
+      "gridPos": {
+        "h": 1,
+        "w": 24,
+        "x": 0,
+        "y": 25
+      },
+      "collapsed": false,
+      "panels": []
+    },
+    {
+      "id": 12,
+      "title": "Per-Page Analysis (PageSpeed Insights View)",
+      "type": "table",
+      "gridPos": { "h": 12, "w": 24, "x": 0, "y": 26 },
+      "datasource": { "type": "loki", "uid": "loki" },
+      "options": {
+        "showHeader": true,
+        "sortBy": [{ "displayName": "LCP (P75)", "desc": true }]
+      },
+      "fieldConfig": {
+        "defaults": {
+          "custom": { "filterable": true, "displayMode": "color-background" },
+          "thresholds": { "mode": "absolute", "steps": [{ "color": "green", "value": null }] }
+        },
+        "overrides": [
+          {
+            "matcher": { "id": "byName", "options": "LCP" },
+            "properties": [
+              { "id": "displayName", "value": "LCP (P75)" },
+              { "id": "unit", "value": "ms" },
+              { "id": "thresholds", "value": { "mode": "absolute", "steps": [ { "color": "green", "value": null }, { "color": "yellow", "value": 2500 }, { "color": "red", "value": 4000 } ] } }
+            ]
+          },
+          {
+            "matcher": { "id": "byName", "options": "FCP" },
+            "properties": [
+              { "id": "displayName", "value": "FCP (P75)" },
+              { "id": "unit", "value": "ms" },
+              { "id": "thresholds", "value": { "mode": "absolute", "steps": [ { "color": "green", "value": null }, { "color": "yellow", "value": 1800 }, { "color": "red", "value": 3000 } ] } }
+            ]
+          },
+          {
+            "matcher": { "id": "byName", "options": "CLS" },
+            "properties": [
+              { "id": "displayName", "value": "CLS (P75)" },
+              { "id": "thresholds", "value": { "mode": "absolute", "steps": [ { "color": "green", "value": null }, { "color": "yellow", "value": 0.1 }, { "color": "red", "value": 0.25 } ] } }
+            ]
+          },
+          {
+            "matcher": { "id": "byName", "options": "INP" },
+            "properties": [
+              { "id": "displayName", "value": "INP (P75)" },
+              { "id": "unit", "value": "ms" },
+              { "id": "thresholds", "value": { "mode": "absolute", "steps": [ { "color": "green", "value": null }, { "color": "yellow", "value": 200 }, { "color": "red", "value": 500 } ] } }
+            ]
+          },
+          {
+            "matcher": { "id": "byName", "options": "TTFB" },
+            "properties": [
+              { "id": "displayName", "value": "TTFB (P75)" },
+              { "id": "unit", "value": "ms" },
+              { "id": "thresholds", "value": { "mode": "absolute", "steps": [ { "color": "green", "value": null }, { "color": "yellow", "value": 800 }, { "color": "red", "value": 1800 } ] } }
+            ]
+          },
+          {
+            "matcher": { "id": "byName", "options": "url" },
+            "properties": [
+              { "id": "displayName", "value": "Page URI" },
+              { "id": "custom.displayMode", "value": "auto" },
+              { "id": "custom.width", "value": 400 }
+            ]
+          }
+        ]
+      },
+      "targets": [
+        { "refId": "LCP", "expr": "quantile_over_time(0.75, {job=\"cwv_rum\", platform=~\"$platform\"} | json | metric=\"LCP\" | unwrap value [$__range]) by (url)", "instant": true },
+        { "refId": "FCP", "expr": "quantile_over_time(0.75, {job=\"cwv_rum\", platform=~\"$platform\"} | json | metric=\"FCP\" | unwrap value [$__range]) by (url)", "instant": true },
+        { "refId": "CLS", "expr": "quantile_over_time(0.75, {job=\"cwv_rum\", platform=~\"$platform\"} | json | metric=\"CLS\" | unwrap value [$__range]) by (url)", "instant": true },
+        { "refId": "INP", "expr": "quantile_over_time(0.75, {job=\"cwv_rum\", platform=~\"$platform\"} | json | metric=\"INP\" | unwrap value [$__range]) by (url)", "instant": true },
+        { "refId": "TTFB", "expr": "quantile_over_time(0.75, {job=\"cwv_rum\", platform=~\"$platform\"} | json | metric=\"TTFB\" | unwrap value [$__range]) by (url)", "instant": true }
+      ],
+      "transformations": [
+        { "id": "seriesToColumns", "options": { "byField": "url" } },
+        {
+          "id": "organize",
+          "options": {
+            "excludeByName": { "Time": true },
+            "renameByName": {
+              "Value #LCP": "LCP",
+              "Value #FCP": "FCP",
+              "Value #CLS": "CLS",
+              "Value #INP": "INP",
+              "Value #TTFB": "TTFB"
+            }
+          }
+        }
+      ]
+    }
+  ],
+  "refresh": "1m",
+  "schemaVersion": 38,
+  "templating": {
+    "list": [
+      {
+        "current": {},
+        "datasource": { "type": "loki", "uid": "loki" },
+        "definition": "label_values({job=\"cwv_rum\"}, platform)",
+        "hide": 0,
+        "includeAll": true,
+        "allValue": ".+",
+        "label": "Platform",
+        "multi": true,
+        "name": "platform",
+        "options": [],
+        "query": { "label": "platform", "refId": "LokiQueryVariable-Platform", "stream": "{job=\"cwv_rum\"}", "type": 1 },
+        "refresh": 2,
+        "sort": 1,
+        "type": "query"
+      }
+    ]
+  },
+  "time": {
+    "from": "now-24h",
+    "to": "now"
+  },
+  "timezone": "browser",
+  "title": "Real User Monitoring (CWV)",
+  "uid": "cwv-rum-dashboard"
+}

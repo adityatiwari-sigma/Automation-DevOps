@@ -180,12 +180,14 @@ scrape_configs:
   pipeline_stages:
     - json:
         expressions:
-          metric_name: name
+          metric_name: metric
           metric_value: value
+          rating: rating
           page_type: page_type
           url: url
           device: platform
     - labels:
         metric_name:
+        rating:
         page_type:
         device:
