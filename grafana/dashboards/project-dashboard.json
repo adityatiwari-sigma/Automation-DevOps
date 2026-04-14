@@ -213,7 +213,7 @@
                 "value": [
                   {
                     "title": "View full logs for this error pattern",
-                    "url": "/d/project-dashboard-v1?var-platform=${__data.fields.Platform}&var-err=${__data.fields[\"Error Pattern\"]}&viewPanel=11&orgId=1",
+                    "url": "/d/${__dashboard.uid}?var-platform=${__data.fields.Platform}&var-err=${__data.fields[\"Error Pattern\"]}&viewPanel=11&from=now-24h&to=now",
                     "targetBlank": false
                   }
                 ]
@@ -306,7 +306,7 @@
             "type": "loki",
             "uid": "loki"
           },
-          "expr": "{level=~\"(?i).*(error|critical|fatal|emergency|warn|err).*\", platform=~\"${platform:pipe}\"} | regexp \"^.*?(?:\\\\[error\\\\]|ERROR|[\\\\w.]+ERROR|Error|CRITICAL|\\\\[Warning\\\\]|Warning|WARN|Warn|\\\\[Warn\\\\])\\\\s*(?:\\\\[[^\\\\]]+\\\\]\\\\s*)*[:]?\\\\s*(?:\\\\d+#\\\\d+:\\\\s+)?(?:\\\\*\\\\d+\\\\s+)?(?P<err>\\\\S.*?)(?:, (?:client|server|request|host|upstream):.*|$)\" |= `${err}`",
+          "expr": "{level=~\"(?i).*(error|critical|fatal|emergency|warn|err).*\", platform=~\"${platform:pipe}\"} |= `${err}`",
           "legendFormat": "",
           "queryType": "range",
           "maxLines": 500
