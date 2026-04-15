@@ -15,7 +15,7 @@
       }
     ]
   },
-  "description": "Hardcoded dashboard for Regenics and CCS projects (Added Embedded Drill-Down Panel & Variables).",
+  "description": "Dynamic project dashboard filtering by selected project (Regenics/CCS). Includes consolidated log views and high-level error aggregation.",
   "editable": true,
   "fiscalYearStartMonth": 0,
   "graphTooltip": 0,
@@ -24,8 +24,9 @@
   "panels": [
     {
       "id": 100,
-      "title": "Error Logs per Project (Time Series)",
+      "title": "Error Logs per Project (30d Trend)",
       "type": "timeseries",
+      "timeFrom": "30d",
       "gridPos": {
         "h": 8,
         "w": 24,
@@ -47,73 +48,22 @@
           "calcs": ["sum"]
         }
       },
-      "fieldConfig": {
-        "defaults": {
-          "custom": {
-            "lineWidth": 2,
-            "fillOpacity": 15,
-            "spanNulls": false
-          },
-          "unit": "short",
-          "color": {
-            "mode": "palette-classic"
-          }
-        }
-      },
       "targets": [
         {
-          "datasource": {
-            "type": "loki",
-            "uid": "loki"
-          },
-          "expr": "sum by (platform) (count_over_time({level=~\"(?i).*(error|critical|fatal|emergency|warn|err).*\", filename=~\"(?i).*regenics.*\"} [$__interval]))",
+          "datasource": { "type": "loki", "uid": "loki" },
+          "expr": "sum by (platform) (count_over_time({level=~\"(?i).*(error|critical|fatal|emergency|warn|err).*\", filename=~\"(?i).*($project).*\", platform=~\"$platform\"} [$__interval]))",
           "refId": "A",
-          "legendFormat": "Regenics - {{platform}}"
-        },
-        {
-          "datasource": {
-            "type": "loki",
-            "uid": "loki"
-          },
-          "expr": "sum (count_over_time({level=~\"(?i).*(error|critical|fatal|emergency|warn|err).*\", platform=\"mysql\"} |~ \"(?i)regenics\" [$__interval]))",
-          "refId": "B",
-          "legendFormat": "Regenics - mysql"
-        },
-        {
-          "datasource": {
-            "type": "loki",
-            "uid": "loki"
-          },
-          "expr": "sum by (platform) (count_over_time({level=~\"(?i).*(error|critical|fatal|emergency|warn|err).*\", filename=~\"(?i).*(ccs|corporatecare).*\"} [$__interval]))",
-          "refId": "C",
-          "legendFormat": "CCS - {{platform}}"
-        },
-        {
-          "datasource": {
-            "type": "loki",
-            "uid": "loki"
-          },
-          "expr": "sum by (platform) (count_over_time({level=~\"(?i).*(error|critical|fatal|emergency|warn|err).*\", platform=\"php-fpm\"} [$__interval]))",
-          "refId": "D",
-          "legendFormat": "Shared - php-fpm"
+          "legendFormat": "{{platform}}"
         }
       ]
     },
     {
       "id": 10,
-      "title": "Top Error Groups (last 24 h)",
-      "description": "Top 20 error patterns aggregated globally. Click a row to drill down into the Logs directly below.",
+      "title": "Top Error Groups (last 2 d)",
       "type": "table",
-      "gridPos": {
-        "h": 10,
-        "w": 24,
-        "x": 0,
-        "y": 8
-      },
-      "datasource": {
-        "type": "loki",
-        "uid": "loki"
-      },
+      "timeFrom": "2d",
+      "gridPos": { "h": 10, "w": 24, "x": 0, "y": 8 },
+      "datasource": { "type": "loki", "uid": "loki" },
       "options": {
         "showHeader": true,
         "sortBy": [
@@ -175,26 +125,6 @@
               {
                 "id": "custom.width",
                 "value": 100
-              },
-              {
-                "id": "thresholds",
-                "value": {
-                  "mode": "absolute",
-                  "steps": [
-                    {
-                      "color": "green",
-                      "value": null
-                    },
-                    {
-                      "color": "yellow",
-                      "value": 50
-                    },
-                    {
-                      "color": "red",
-                      "value": 200
-                    }
-                  ]
-                }
               }
             ]
           },
@@ -213,22 +143,10 @@
                 "value": [
                   {
                     "title": "View full logs for this error pattern",
-                    "url": "/d/${__dashboard.uid}?var-platform=${__data.fields.Platform}&var-err=${__data.fields[\"Error Pattern\"]}&viewPanel=11&from=now-24h&to=now",
+                    "url": "/d/${__dashboard.uid}?var-project=${project}&var-platform=${__data.fields.Platform}&var-err=${__data.fields[\"Error Pattern\"]}&viewPanel=11&from=now-2d&to=now",
                     "targetBlank": false
                   }
                 ]
-              }
-            ]
-          },
-          {
-            "matcher": {
-              "id": "byName",
-              "options": "Platform"
-            },
-            "properties": [
-              {
-                "id": "custom.width",
-                "value": 150
               }
             ]
           }
@@ -237,39 +155,19 @@
       "targets": [
         {
           "refId": "A",
-          "datasource": {
-            "type": "loki",
-            "uid": "loki"
-          },
-          "expr": "topk(20, sum by (err, platform) (count_over_time({level=~\"(?i).*(error|critical|fatal|emergency|warn|err).*\"} | regexp \"^.*?(?:\\\\[error\\\\]|ERROR|[\\\\w.]+ERROR|Error|CRITICAL|\\\\[Warning\\\\]|Warning|WARN|Warn|\\\\[Warn\\\\])\\\\s*(?:\\\\[[^\\\\]]+\\\\]\\\\s*)*[:]?\\\\s*(?:\\\\d+#\\\\d+:\\\\s+)?(?:\\\\*\\\\d+\\\\s+)?(?P<err>\\\\S.*?)(?:, (?:client|server|request|host|upstream):.*|$)\" [24h])))",
+          "expr": "topk(20, sum by (err, platform) (count_over_time({level=~\"(?i).*(error|critical|fatal|emergency|warn|err).*\", filename=~\"(?i).*($project).*\", platform=~\"$platform\"} | regexp \"^.*?(?:\\\\[error\\\\]|ERROR|[\\\\w.]+ERROR|Error|CRITICAL|\\\\[Warning\\\\]|Warning|WARN|Warn|\\\\[Warn\\\\])\\\\s*(?:\\\\[[^\\\\]]+\\\\]\\\\s*)*[:]?\\\\s*(?:\\\\d+#\\\\d+:\\\\s+)?(?:\\\\*\\\\d+\\\\s+)?(?P<err>\\\\S.*?)(?:, (?:client|server|request|host|upstream):.*|$)\" [2d])))",
           "instant": true,
-          "legendFormat": "",
           "queryType": "instant"
         }
       ],
       "transformations": [
-        {
-          "id": "labelsToFields",
-          "options": {
-            "mode": "columns"
-          }
-        },
+        { "id": "labelsToFields", "options": { "mode": "columns" } },
         {
           "id": "organize",
           "options": {
-            "renameByName": {
-              "err": "Error Pattern",
-              "platform": "Platform",
-              "Value": "Count"
-            },
-            "indexByName": {
-              "Error Pattern": 0,
-              "Platform": 1,
-              "Count": 2
-            },
-            "excludeByName": {
-              "Time": true
-            }
+            "renameByName": { "err": "Error Pattern", "platform": "Platform", "Value": "Count" },
+            "indexByName": { "Error Pattern": 0, "Platform": 1, "Count": 2 },
+            "excludeByName": { "Time": true }
           }
         }
       ]
@@ -277,37 +175,14 @@
     {
       "id": 11,
       "title": "Log Drill-Down Details",
-      "description": "Raw error log lines filtered by the pattern selected in the table above.",
       "type": "logs",
-      "gridPos": {
-        "h": 10,
-        "w": 24,
-        "x": 0,
-        "y": 18
-      },
-      "datasource": {
-        "type": "loki",
-        "uid": "loki"
-      },
-      "options": {
-        "dedupStrategy": "none",
-        "enableLogDetails": true,
-        "prettifyLogMessage": false,
-        "showCommonLabels": true,
-        "showLabels": true,
-        "showTime": true,
-        "sortOrder": "Descending",
-        "wrapLogMessage": true
-      },
+      "timeFrom": "2d",
+      "gridPos": { "h": 10, "w": 24, "x": 0, "y": 18 },
+      "datasource": { "type": "loki", "uid": "loki" },
       "targets": [
         {
           "refId": "A",
-          "datasource": {
-            "type": "loki",
-            "uid": "loki"
-          },
-          "expr": "{level=~\"(?i).*(error|critical|fatal|emergency|warn|err).*\", platform=~\"${platform:pipe}\"} |= `${err}`",
-          "legendFormat": "",
+          "expr": "{level=~\"(?i).*(error|critical|fatal|emergency|warn|err).*\", filename=~\"(?i).*($project).*\", platform=~\"${platform:pipe}\"} |= `${err}`",
           "queryType": "range",
           "maxLines": 500
         }
@@ -315,316 +190,61 @@
     },
     {
       "id": 1,
-      "title": "Nginx Error Logs (Regenics)",
+      "title": "Nginx Error Logs",
       "type": "logs",
       "timeFrom": "30d",
-      "gridPos": {
-        "h": 9,
-        "w": 12,
-        "x": 0,
-        "y": 28
-      },
-      "datasource": {
-        "type": "loki",
-        "uid": "loki"
-      },
-      "options": {
-        "dedupStrategy": "none",
-        "enableLogDetails": true,
-        "showTime": true,
-        "showLabels": true,
-        "sortOrder": "Descending",
-        "wrapLogMessage": true
-      },
+      "gridPos": { "h": 9, "w": 24, "x": 0, "y": 28 },
+      "datasource": { "type": "loki", "uid": "loki" },
       "targets": [
         {
-          "datasource": {
-            "type": "loki",
-            "uid": "loki"
-          },
-          "expr": "{log_type=\"nginx-error\", filename=~\"(?i).*regenics.*\"}",
+          "expr": "{log_type=\"nginx-error\", filename=~\"(?i).*($project).*\"}",
           "refId": "A",
-          "maxLines": 5
-        }
-      ]
-    },
-    {
-      "id": 2,
-      "title": "Nginx Error Logs (CCS)",
-      "type": "logs",
-      "timeFrom": "30d",
-      "gridPos": {
-        "h": 9,
-        "w": 12,
-        "x": 12,
-        "y": 28
-      },
-      "datasource": {
-        "type": "loki",
-        "uid": "loki"
-      },
-      "options": {
-        "dedupStrategy": "none",
-        "enableLogDetails": true,
-        "showTime": true,
-        "showLabels": true,
-        "sortOrder": "Descending",
-        "wrapLogMessage": true
-      },
-      "targets": [
-        {
-          "datasource": {
-            "type": "loki",
-            "uid": "loki"
-          },
-          "expr": "{log_type=\"nginx-error\", filename=~\"(?i).*(ccs|corporatecare).*\"}",
-          "refId": "A",
-          "maxLines": 5
+          "maxLines": 50
         }
       ]
     },
     {
       "id": 3,
-      "title": "MySQL Error Logs (Regenics)",
+      "title": "MySQL Error Logs",
       "type": "logs",
       "timeFrom": "30d",
-      "gridPos": {
-        "h": 9,
-        "w": 12,
-        "x": 0,
-        "y": 37
-      },
-      "datasource": {
-        "type": "loki",
-        "uid": "loki"
-      },
-      "options": {
-        "dedupStrategy": "none",
-        "enableLogDetails": true,
-        "showTime": true,
-        "showLabels": true,
-        "sortOrder": "Descending",
-        "wrapLogMessage": true
-      },
+      "gridPos": { "h": 9, "w": 24, "x": 0, "y": 37 },
+      "datasource": { "type": "loki", "uid": "loki" },
       "targets": [
         {
-          "datasource": {
-            "type": "loki",
-            "uid": "loki"
-          },
-          "expr": "{platform=\"mysql\", filename=~\"(?i).*/error\\\\.log$\"}",
+          "expr": "{platform=\"mysql\", filename=~\"(?i).*($project).*\"}",
           "refId": "A",
-          "maxLines": 5
-        }
-      ]
-    },
-    {
-      "id": 4,
-      "title": "MySQL Error Logs (CCS)",
-      "type": "logs",
-      "timeFrom": "30d",
-      "gridPos": {
-        "h": 9,
-        "w": 12,
-        "x": 12,
-        "y": 37
-      },
-      "datasource": {
-        "type": "loki",
-        "uid": "loki"
-      },
-      "options": {
-        "dedupStrategy": "none",
-        "enableLogDetails": true,
-        "showTime": true,
-        "showLabels": true,
-        "sortOrder": "Descending",
-        "wrapLogMessage": true
-      },
-      "targets": [
-        {
-          "datasource": {
-            "type": "loki",
-            "uid": "loki"
-          },
-          "expr": "{platform=\"mysql\", filename=~\"(?i).*/ccs_error\\\\.log$\"}",
-          "refId": "A",
-          "maxLines": 5
+          "maxLines": 50
         }
       ]
     },
     {
       "id": 8,
-      "title": "MySQL Slow Queries (Regenics)",
+      "title": "MySQL Slow Queries",
       "type": "logs",
       "timeFrom": "30d",
-      "gridPos": {
-        "h": 9,
-        "w": 12,
-        "x": 0,
-        "y": 46
-      },
-      "datasource": {
-        "type": "loki",
-        "uid": "loki"
-      },
-      "options": {
-        "dedupStrategy": "none",
-        "enableLogDetails": true,
-        "showTime": true,
-        "showLabels": true,
-        "sortOrder": "Descending",
-        "wrapLogMessage": true
-      },
+      "gridPos": { "h": 9, "w": 24, "x": 0, "y": 46 },
+      "datasource": { "type": "loki", "uid": "loki" },
       "targets": [
         {
-          "datasource": {
-            "type": "loki",
-            "uid": "loki"
-          },
-          "expr": "{platform=\"mysql\", filename=~\"(?i).*slow.*\"} |~ \"(?i)regenics\"",
+          "expr": "{platform=\"mysql\", filename=~\"(?i).*slow.*\"} |~ \"(?i)($project)\"",
           "refId": "A",
-          "maxLines": 5
-        }
-      ]
-    },
-    {
-      "id": 9,
-      "title": "MySQL Slow Queries (CCS)",
-      "type": "logs",
-      "timeFrom": "30d",
-      "gridPos": {
-        "h": 9,
-        "w": 12,
-        "x": 12,
-        "y": 46
-      },
-      "datasource": {
-        "type": "loki",
-        "uid": "loki"
-      },
-      "options": {
-        "dedupStrategy": "none",
-        "enableLogDetails": true,
-        "showTime": true,
-        "showLabels": true,
-        "sortOrder": "Descending",
-        "wrapLogMessage": true
-      },
-      "targets": [
-        {
-          "datasource": {
-            "type": "loki",
-            "uid": "loki"
-          },
-          "expr": "{platform=\"mysql\", filename=~\"(?i).*slow.*\"} |~ \"(?i)(ccs|corporatecare)\"",
-          "refId": "A",
-          "maxLines": 5
+          "maxLines": 50
         }
       ]
     },
     {
       "id": 5,
-      "title": "App Logs: Wordpress (Regenics)",
+      "title": "Application Logs",
       "type": "logs",
       "timeFrom": "30d",
-      "gridPos": {
-        "h": 9,
-        "w": 12,
-        "x": 0,
-        "y": 55
-      },
-      "datasource": {
-        "type": "loki",
-        "uid": "loki"
-      },
-      "options": {
-        "dedupStrategy": "none",
-        "enableLogDetails": true,
-        "showTime": true,
-        "showLabels": true,
-        "sortOrder": "Descending",
-        "wrapLogMessage": true
-      },
+      "gridPos": { "h": 9, "w": 24, "x": 0, "y": 55 },
+      "datasource": { "type": "loki", "uid": "loki" },
       "targets": [
         {
-          "datasource": {
-            "type": "loki",
-            "uid": "loki"
-          },
-          "expr": "{platform=\"wordpress\"}",
+          "expr": "{platform=~\"wordpress|laravel\", filename=~\"(?i).*($project).*\"}",
           "refId": "A",
-          "maxLines": 5
-        }
-      ]
-    },
-    {
-      "id": 6,
-      "title": "App Logs: Laravel (CCS)",
-      "type": "logs",
-      "timeFrom": "30d",
-      "gridPos": {
-        "h": 9,
-        "w": 12,
-        "x": 12,
-        "y": 55
-      },
-      "datasource": {
-        "type": "loki",
-        "uid": "loki"
-      },
-      "options": {
-        "dedupStrategy": "none",
-        "enableLogDetails": true,
-        "showTime": true,
-        "showLabels": true,
-        "sortOrder": "Descending",
-        "wrapLogMessage": true
-      },
-      "targets": [
-        {
-          "datasource": {
-            "type": "loki",
-            "uid": "loki"
-          },
-          "expr": "{platform=\"laravel\"}",
-          "refId": "A",
-          "maxLines": 5
-        }
-      ]
-    },
-    {
-      "id": 7,
-      "title": "PHP-FPM Logs (Shared)",
-      "type": "logs",
-      "timeFrom": "30d",
-      "gridPos": {
-        "h": 8,
-        "w": 24,
-        "x": 0,
-        "y": 64
-      },
-      "datasource": {
-        "type": "loki",
-        "uid": "loki"
-      },
-      "options": {
-        "dedupStrategy": "none",
-        "enableLogDetails": true,
-        "showTime": true,
-        "showLabels": true,
-        "sortOrder": "Descending",
-        "wrapLogMessage": true
-      },
-      "targets": [
-        {
-          "datasource": {
-            "type": "loki",
-            "uid": "loki"
-          },
-          "expr": "{platform=\"php-fpm\"}",
-          "refId": "A",
-          "maxLines": 5
+          "maxLines": 50
         }
       ]
     }
@@ -633,6 +253,33 @@
   "schemaVersion": 38,
   "templating": {
     "list": [
+      {
+        "current": {
+          "selected": true,
+          "text": "Regenics",
+          "value": "regenics|/error.log$"
+        },
+        "hide": 0,
+        "includeAll": false,
+        "label": "Project",
+        "multi": false,
+        "name": "project",
+        "options": [
+          {
+            "selected": true,
+            "text": "Regenics",
+            "value": "regenics|/error.log$"
+          },
+          {
+            "selected": false,
+            "text": "CCS",
+            "value": "ccs|corporatecare"
+          }
+        ],
+        "query": "Regenics : regenics|/error.log$, CCS : ccs|corporatecare",
+        "skipUrlSync": false,
+        "type": "custom"
+      },
       {
         "current": {
           "selected": false,
@@ -659,7 +306,7 @@
           "type": "loki",
           "uid": "loki"
         },
-        "definition": "label_values({level=~\"(?i).*(error|critical|fatal|emergency|warn|err).*\"}, platform)",
+        "definition": "label_values({filename=~\"(?i).*($project).*\"}, platform)",
         "hide": 0,
         "includeAll": true,
         "allValue": ".+",
@@ -670,7 +317,7 @@
         "query": {
           "label": "platform",
           "refId": "LokiVariableQueryEditor-VariableQuery",
-          "stream": "{level=~\"(?i).*(error|critical|fatal|emergency|warn|err).*\"}",
+          "stream": "{filename=~\"(?i).*($project).*\"}",
           "type": 1
         },
         "refresh": 2,
@@ -685,6 +332,6 @@
     "to": "now"
   },
   "timezone": "browser",
-  "title": "Project Logs (Regenics & CCS)",
+  "title": "Project Dashboard",
   "uid": "project-dashboard-v1"
 }
