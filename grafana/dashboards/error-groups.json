@@ -24,17 +24,17 @@
   "panels": [
     {
       "id": 101,
-      "title": "P1 Critical",
+      "title": "P1 Critical (24h)",
       "type": "stat",
       "gridPos": {
         "h": 3,
-        "w": 6,
+        "w": 8,
         "x": 0,
         "y": 0
       },
       "datasource": {
-        "type": "prometheus",
-        "uid": "prometheus"
+        "type": "loki",
+        "uid": "loki"
       },
       "options": {
         "reduceOptions": {
@@ -48,17 +48,8 @@
       },
       "fieldConfig": {
         "defaults": {
-          "mappings": [
-            {
-              "type": "value",
-              "options": {
-                "0": {
-                  "text": "✅ OK",
-                  "color": "dark-green"
-                }
-              }
-            }
-          ],
+          "mappings": [],
+          "noValue": "0",
           "thresholds": {
             "mode": "absolute",
             "steps": [
@@ -76,24 +67,24 @@
       },
       "targets": [
         {
-          "expr": "count(ALERTS{alertstate=\"firing\", severity=\"p1\"}) or vector(0)",
-          "instant": true
+          "expr": "sum(count_over_time({platform=~\"$platform\", environment=~\"$environment\"} |~ \"(?i)(server reached pm.max_children|max_children|too many open files|OOM command not allowed|OOM killer|((fatal|emergency|critical).*?(/checkout|/payment/|/cart|/order|/billing|/invoice)))\" [24h]))",
+          "refId": "A"
         }
       ]
     },
     {
       "id": 102,
-      "title": "P2 High",
+      "title": "P2 High (24h)",
       "type": "stat",
       "gridPos": {
         "h": 3,
-        "w": 6,
-        "x": 6,
+        "w": 8,
+        "x": 8,
         "y": 0
       },
       "datasource": {
-        "type": "prometheus",
-        "uid": "prometheus"
+        "type": "loki",
+        "uid": "loki"
       },
       "options": {
         "reduceOptions": {
@@ -107,17 +98,8 @@
       },
       "fieldConfig": {
         "defaults": {
-          "mappings": [
-            {
-              "type": "value",
-              "options": {
-                "0": {
-                  "text": "✅ OK",
-                  "color": "dark-green"
-                }
-              }
-            }
-          ],
+          "mappings": [],
+          "noValue": "0",
           "thresholds": {
             "mode": "absolute",
             "steps": [
@@ -135,24 +117,24 @@
       },
       "targets": [
         {
-          "expr": "count(ALERTS{alertstate=\"firing\", severity=\"p2\"}) or vector(0)",
-          "instant": true
+          "expr": "sum(count_over_time({platform=~\"$platform\", environment=~\"$environment\"} |~ \"(?i)(php\\\\s*(fatal|parse)\\\\s*error|fatal\\\\s*error.*php|call\\\\s+to\\\\s+undefined|allowed\\\\s+memory\\\\s+size\\\\s+exhausted|error|slow\\\\s*query|lock\\\\s+time|table.*is\\\\+full|access\\\\+denied)\" !~ \"(?i)(/checkout|/payment/|/cart)\" [24h]))",
+          "refId": "A"
         }
       ]
     },
     {
       "id": 103,
-      "title": "P3 Low",
+      "title": "P3 Low (24h)",
       "type": "stat",
       "gridPos": {
         "h": 3,
-        "w": 6,
-        "x": 12,
+        "w": 8,
+        "x": 16,
         "y": 0
       },
       "datasource": {
-        "type": "prometheus",
-        "uid": "prometheus"
+        "type": "loki",
+        "uid": "loki"
       },
       "options": {
         "reduceOptions": {
@@ -166,17 +148,8 @@
       },
       "fieldConfig": {
         "defaults": {
-          "mappings": [
-            {
-              "type": "value",
-              "options": {
-                "0": {
-                  "text": "✅ OK",
-                  "color": "dark-green"
-                }
-              }
-            }
-          ],
+          "mappings": [],
+          "noValue": "0",
           "thresholds": {
             "mode": "absolute",
             "steps": [
@@ -194,57 +167,8 @@
       },
       "targets": [
         {
-          "expr": "count(ALERTS{alertstate=\"firing\", severity=\"p3\"}) or vector(0)",
-          "instant": true
-        }
-      ]
-    },
-    {
-      "id": 104,
-      "title": "5xx Rate",
-      "type": "stat",
-      "gridPos": {
-        "h": 3,
-        "w": 6,
-        "x": 18,
-        "y": 0
-      },
-      "datasource": {
-        "type": "prometheus",
-        "uid": "prometheus"
-      },
-      "options": {
-        "reduceOptions": {
-          "calcs": [
-            "lastNotNull"
-          ]
-        },
-        "colorMode": "background",
-        "justifyMode": "center",
-        "textMode": "value"
-      },
-      "fieldConfig": {
-        "defaults": {
-          "unit": "percentunit",
-          "thresholds": {
-            "mode": "absolute",
-            "steps": [
-              {
-                "color": "dark-green",
-                "value": null
-              },
-              {
-                "color": "dark-red",
-                "value": 0.05
-              }
-            ]
-          }
-        }
-      },
-      "targets": [
-        {
-          "expr": "sum(rate(nginx_http_requests_total{status=~\"5..\"}[2m])) / sum(rate(nginx_http_requests_total[2m]))",
-          "instant": true
+          "expr": "sum(count_over_time({platform=~\"$platform\", environment=~\"$environment\"} |~ \"(?i)(warning|notice|deprecated)\" [24h]))",
+          "refId": "A"
         }
       ]
     },
