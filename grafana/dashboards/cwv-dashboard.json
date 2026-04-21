@@ -66,7 +66,7 @@
       },
       "targets": [
         {
-          "expr": "topk(10, quantile_over_time(0.75, {job=\"cwv_rum\", platform=~\"$platform\"} | json | label_format url=url | metric=\"LCP\" | unwrap value [$__range]) by (url))",
+          "expr": "topk(10, quantile_over_time(0.75, {job=\"cwv_rum\", platform=~\"$platform\", metric_name=\"LCP\"} | json | label_format url=\"{{.url}}\" | url=~\"$uri\" | unwrap value [$__range]) by (url))",
           "legendFormat": "{{url}}"
         }
       ]
@@ -102,7 +102,7 @@
       },
       "targets": [
         {
-          "expr": "topk(10, quantile_over_time(0.75, {job=\"cwv_rum\", platform=~\"$platform\"} | json | label_format url=url | metric=\"INP\" | unwrap value [$__range]) by (url))",
+          "expr": "topk(10, quantile_over_time(0.75, {job=\"cwv_rum\", platform=~\"$platform\", metric_name=\"INP\"} | json | label_format url=\"{{.url}}\" | url=~\"$uri\" | unwrap value [$__range]) by (url))",
           "legendFormat": "{{url}}"
         }
       ]
@@ -138,7 +138,7 @@
       },
       "targets": [
         {
-          "expr": "topk(10, quantile_over_time(0.75, {job=\"cwv_rum\", platform=~\"$platform\"} | json | label_format url=url | metric=\"CLS\" | unwrap value [$__range]) by (url))",
+          "expr": "topk(10, quantile_over_time(0.75, {job=\"cwv_rum\", platform=~\"$platform\", metric_name=\"CLS\"} | json | label_format url=\"{{.url}}\" | url=~\"$uri\" | unwrap value [$__range]) by (url))",
           "legendFormat": "{{url}}"
         }
       ]
@@ -174,7 +174,7 @@
       },
       "targets": [
         {
-          "expr": "topk(10, quantile_over_time(0.75, {job=\"cwv_rum\", platform=~\"$platform\"} | json | label_format url=url | metric=\"FCP\" | unwrap value [$__range]) by (url))",
+          "expr": "topk(10, quantile_over_time(0.75, {job=\"cwv_rum\", platform=~\"$platform\", metric_name=\"FCP\"} | json | label_format url=\"{{.url}}\" | url=~\"$uri\" | unwrap value [$__range]) by (url))",
           "legendFormat": "{{url}}"
         }
       ]
@@ -210,7 +210,7 @@
       },
       "targets": [
         {
-          "expr": "topk(10, quantile_over_time(0.75, {job=\"cwv_rum\", platform=~\"$platform\"} | json | label_format url=url | metric=\"TTFB\" | unwrap value [$__range]) by (url))",
+          "expr": "topk(10, quantile_over_time(0.75, {job=\"cwv_rum\", platform=~\"$platform\", metric_name=\"TTFB\"} | json | label_format url=\"{{.url}}\" | url=~\"$uri\" | unwrap value [$__range]) by (url))",
           "legendFormat": "{{url}}"
         }
       ]
@@ -246,7 +246,7 @@
       },
       "targets": [
         {
-          "expr": "sum(count_over_time({job=\"cwv_rum\", platform=~\"$platform\"} | json | rating=\"good\" [$__range])) / sum(count_over_time({job=\"cwv_rum\", platform=~\"$platform\"} [$__range]))",
+          "expr": "(sum(count_over_time({job=\"cwv_rum\", platform=~\"$platform\", rating=\"good\"} | json | label_format url=\"{{.url}}\" | url=~\"$uri\" [$__range])) or vector(0)) / (sum(count_over_time({job=\"cwv_rum\", platform=~\"$platform\"} | json | label_format url=\"{{.url}}\" | url=~\"$uri\" [$__range])) or vector(1))",
           "legendFormat": "Pass Rate"
         }
       ]
@@ -273,7 +273,7 @@
       "fieldConfig": {
         "defaults": {
           "unit": "ms",
-          "custom": { "drawStyle": "line", "fillOpacity": 10, "lineWidth": 2 },
+          "custom": { "drawStyle": "line", "fillOpacity": 10, "lineWidth": 2, "spanNulls": true },
           "thresholds": {
             "mode": "absolute",
             "steps": [
@@ -286,7 +286,7 @@
       },
       "targets": [
         {
-          "expr": "quantile_over_time(0.75, {job=\"cwv_rum\", platform=~\"$platform\"} | json | metric=\"LCP\" | unwrap value [$__interval]) by (url)",
+          "expr": "quantile_over_time(0.75, {job=\"cwv_rum\", platform=~\"$platform\", metric_name=\"LCP\"} | json | label_format url=\"{{.url}}\" | url=~\"$uri\" | unwrap value [$__interval]) by (url)",
           "legendFormat": "{{url}}"
         }
       ]
@@ -300,7 +300,7 @@
       "fieldConfig": {
         "defaults": {
           "unit": "ms",
-          "custom": { "drawStyle": "line", "fillOpacity": 10, "lineWidth": 2 },
+          "custom": { "drawStyle": "line", "fillOpacity": 10, "lineWidth": 2, "spanNulls": true },
           "thresholds": {
             "mode": "absolute",
             "steps": [
@@ -313,7 +313,7 @@
       },
       "targets": [
         {
-          "expr": "quantile_over_time(0.75, {job=\"cwv_rum\", platform=~\"$platform\"} | json | metric=\"FCP\" | unwrap value [$__interval]) by (url)",
+          "expr": "quantile_over_time(0.75, {job=\"cwv_rum\", platform=~\"$platform\", metric_name=\"FCP\"} | json | label_format url=\"{{.url}}\" | url=~\"$uri\" | unwrap value [$__interval]) by (url)",
           "legendFormat": "{{url}}"
         }
       ]
@@ -327,7 +327,7 @@
       "fieldConfig": {
         "defaults": {
           "unit": "ms",
-          "custom": { "drawStyle": "line", "fillOpacity": 10, "lineWidth": 2 },
+          "custom": { "drawStyle": "line", "fillOpacity": 10, "lineWidth": 2, "spanNulls": true },
           "thresholds": {
             "mode": "absolute",
             "steps": [
@@ -340,7 +340,7 @@
       },
       "targets": [
         {
-          "expr": "quantile_over_time(0.75, {job=\"cwv_rum\", platform=~\"$platform\"} | json | metric=\"INP\" | unwrap value [$__interval]) by (url)",
+          "expr": "quantile_over_time(0.75, {job=\"cwv_rum\", platform=~\"$platform\", metric_name=\"INP\"} | json | label_format url=\"{{.url}}\" | url=~\"$uri\" | unwrap value [$__interval]) by (url)",
           "legendFormat": "{{url}}"
         }
       ]
@@ -354,7 +354,7 @@
       "fieldConfig": {
         "defaults": {
           "unit": "ms",
-          "custom": { "drawStyle": "line", "fillOpacity": 10, "lineWidth": 2 },
+          "custom": { "drawStyle": "line", "fillOpacity": 10, "lineWidth": 2, "spanNulls": true },
           "thresholds": {
             "mode": "absolute",
             "steps": [
@@ -367,7 +367,7 @@
       },
       "targets": [
         {
-          "expr": "quantile_over_time(0.75, {job=\"cwv_rum\", platform=~\"$platform\"} | json | metric=\"TTFB\" | unwrap value [$__interval]) by (url)",
+          "expr": "quantile_over_time(0.75, {job=\"cwv_rum\", platform=~\"$platform\", metric_name=\"TTFB\"} | json | label_format url=\"{{.url}}\" | url=~\"$uri\" | unwrap value [$__interval]) by (url)",
           "legendFormat": "{{url}}"
         }
       ]
@@ -451,11 +451,11 @@
         ]
       },
       "targets": [
-        { "refId": "LCP", "expr": "quantile_over_time(0.75, {job=\"cwv_rum\", platform=~\"$platform\"} | json | metric=\"LCP\" | unwrap value [$__range]) by (url)", "instant": true },
-        { "refId": "FCP", "expr": "quantile_over_time(0.75, {job=\"cwv_rum\", platform=~\"$platform\"} | json | metric=\"FCP\" | unwrap value [$__range]) by (url)", "instant": true },
-        { "refId": "CLS", "expr": "quantile_over_time(0.75, {job=\"cwv_rum\", platform=~\"$platform\"} | json | metric=\"CLS\" | unwrap value [$__range]) by (url)", "instant": true },
-        { "refId": "INP", "expr": "quantile_over_time(0.75, {job=\"cwv_rum\", platform=~\"$platform\"} | json | metric=\"INP\" | unwrap value [$__range]) by (url)", "instant": true },
-        { "refId": "TTFB", "expr": "quantile_over_time(0.75, {job=\"cwv_rum\", platform=~\"$platform\"} | json | metric=\"TTFB\" | unwrap value [$__range]) by (url)", "instant": true }
+        { "refId": "LCP", "expr": "quantile_over_time(0.75, {job=\"cwv_rum\", platform=~\"$platform\", metric_name=\"LCP\"} | json | label_format url=\"{{.url}}\" | url=~\"$uri\" | unwrap value [$__range]) by (url)", "instant": true },
+        { "refId": "FCP", "expr": "quantile_over_time(0.75, {job=\"cwv_rum\", platform=~\"$platform\", metric_name=\"FCP\"} | json | label_format url=\"{{.url}}\" | url=~\"$uri\" | unwrap value [$__range]) by (url)", "instant": true },
+        { "refId": "CLS", "expr": "quantile_over_time(0.75, {job=\"cwv_rum\", platform=~\"$platform\", metric_name=\"CLS\"} | json | label_format url=\"{{.url}}\" | url=~\"$uri\" | unwrap value [$__range]) by (url)", "instant": true },
+        { "refId": "INP", "expr": "quantile_over_time(0.75, {job=\"cwv_rum\", platform=~\"$platform\", metric_name=\"INP\"} | json | label_format url=\"{{.url}}\" | url=~\"$uri\" | unwrap value [$__range]) by (url)", "instant": true },
+        { "refId": "TTFB", "expr": "quantile_over_time(0.75, {job=\"cwv_rum\", platform=~\"$platform\", metric_name=\"TTFB\"} | json | label_format url=\"{{.url}}\" | url=~\"$uri\" | unwrap value [$__range]) by (url)", "instant": true }
       ],
       "transformations": [
         { "id": "seriesToColumns", "options": { "byField": "url" } },
@@ -491,6 +491,26 @@
         "name": "platform",
         "options": [],
         "query": { "label": "platform", "refId": "LokiQueryVariable-Platform", "stream": "{job=\"cwv_rum\"}", "type": 1 },
+        "refresh": 2,
+        "sort": 1,
+        "type": "query"
+      },
+      {
+        "current": {
+          "selected": true,
+          "text": "All",
+          "value": "$__all"
+        },
+        "datasource": { "type": "loki", "uid": "loki" },
+        "definition": "label_values(uri)",
+        "hide": 0,
+        "includeAll": true,
+        "allValue": ".+",
+        "label": "URI / Page",
+        "multi": true,
+        "name": "uri",
+        "options": [],
+        "query": { "label": "uri", "refId": "LokiQueryVariable-URI", "stream": "", "type": 1 },
         "refresh": 2,
         "sort": 1,
         "type": "query"

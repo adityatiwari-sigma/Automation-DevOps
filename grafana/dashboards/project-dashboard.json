@@ -59,9 +59,9 @@
     },
     {
       "id": 10,
-      "title": "Top Error Groups (last 2 d)",
+      "title": "Top Error Groups (Past 24h)",
       "type": "table",
-      "timeFrom": "2d",
+      "timeFrom": "24h",
       "gridPos": { "h": 10, "w": 24, "x": 0, "y": 8 },
       "datasource": { "type": "loki", "uid": "loki" },
       "options": {
@@ -143,7 +143,7 @@
                 "value": [
                   {
                     "title": "View full logs for this error pattern",
-                    "url": "/d/${__dashboard.uid}?var-project=${project}&var-platform=${__data.fields.Platform}&var-err=${__data.fields[\"Error Pattern\"]}&viewPanel=11&from=now-2d&to=now",
+                    "url": "/d/${__dashboard.uid}?var-project=${project}&var-platform=${__data.fields.Platform}&var-err=${__data.fields[\"Error Pattern\"]}&viewPanel=11&from=now-24h&to=now",
                     "targetBlank": false
                   }
                 ]
@@ -155,7 +155,7 @@
       "targets": [
         {
           "refId": "A",
-          "expr": "topk(20, sum by (err, platform) (count_over_time({level=~\"(?i).*(error|critical|fatal|emergency|warn|err).*\", filename=~\"(?i).*($project).*\", platform=~\"$platform\"} | regexp \"^.*?(?:\\\\[error\\\\]|ERROR|[\\\\w.]+ERROR|Error|CRITICAL|\\\\[Warning\\\\]|Warning|WARN|Warn|\\\\[Warn\\\\])\\\\s*(?:\\\\[[^\\\\]]+\\\\]\\\\s*)*[:]?\\\\s*(?:\\\\d+#\\\\d+:\\\\s+)?(?:\\\\*\\\\d+\\\\s+)?(?P<err>\\\\S.*?)(?:, (?:client|server|request|host|upstream):.*|$)\" [2d])))",
+          "expr": "topk(20, sum by (err, platform) (count_over_time({level=~\"(?i).*(error|critical|fatal|emergency|warn|err).*\", filename=~\"(?i).*($project).*\", platform=~\"$platform\"} | regexp \"^.*?(?:\\\\[error\\\\]|ERROR|[\\\\w.]+ERROR|Error|CRITICAL|\\\\[Warning\\\\]|Warning|WARN|Warn|\\\\[Warn\\\\])\\\\s*(?:\\\\[[^\\\\]]+\\\\]\\\\s*)*[:]?\\\\s*(?:\\\\d+#\\\\d+:\\\\s+)?(?:\\\\*\\\\d+\\\\s+)?(?P<err>\\\\S.*?)(?:, (?:client|server|request|host|upstream):.*|$)\" [24h])))",
           "instant": true,
           "queryType": "instant"
         }
@@ -176,7 +176,7 @@
       "id": 11,
       "title": "Log Drill-Down Details",
       "type": "logs",
-      "timeFrom": "2d",
+      "timeFrom": "24h",
       "gridPos": { "h": 10, "w": 24, "x": 0, "y": 18 },
       "datasource": { "type": "loki", "uid": "loki" },
       "targets": [
@@ -192,7 +192,7 @@
       "id": 1,
       "title": "Nginx Error Logs",
       "type": "logs",
-      "timeFrom": "30d",
+      "timeFrom": "24h",
       "gridPos": { "h": 9, "w": 24, "x": 0, "y": 28 },
       "datasource": { "type": "loki", "uid": "loki" },
       "targets": [
@@ -207,7 +207,7 @@
       "id": 3,
       "title": "MySQL Error Logs",
       "type": "logs",
-      "timeFrom": "30d",
+      "timeFrom": "24h",
       "gridPos": { "h": 9, "w": 24, "x": 0, "y": 37 },
       "datasource": { "type": "loki", "uid": "loki" },
       "targets": [
@@ -222,7 +222,7 @@
       "id": 8,
       "title": "MySQL Slow Queries",
       "type": "logs",
-      "timeFrom": "30d",
+      "timeFrom": "24h",
       "gridPos": { "h": 9, "w": 24, "x": 0, "y": 46 },
       "datasource": { "type": "loki", "uid": "loki" },
       "targets": [
@@ -237,7 +237,7 @@
       "id": 5,
       "title": "Application Logs",
       "type": "logs",
-      "timeFrom": "30d",
+      "timeFrom": "24h",
       "gridPos": { "h": 9, "w": 24, "x": 0, "y": 55 },
       "datasource": { "type": "loki", "uid": "loki" },
       "targets": [
@@ -328,7 +328,7 @@
     ]
   },
   "time": {
-    "from": "now-1h",
+    "from": "now-24h",
     "to": "now"
   },
   "timezone": "browser",
