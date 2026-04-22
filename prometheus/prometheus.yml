@@ -99,3 +99,8 @@ scrape_configs:
           platform: "dev.regenics.com"
           environment: "production"
           instance_name: "dev-regenics"
+
+  - job_name: 'pushgateway'
+    honor_labels: true
+    static_configs:
+      - targets: ['10.10.2.77:9091']

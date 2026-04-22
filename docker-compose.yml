@@ -189,3 +189,22 @@ services:
       interval: 30s
       timeout: 10s
       retries: 3
+
+  # ──────────────────────────────────────────────────────────
+  # PUSHGATEWAY — receives Playwright probe metrics
+  # ──────────────────────────────────────────────────────────
+  pushgateway:
+    image: prom/pushgateway:v1.8.0
+    container_name: pushgateway
+    restart: unless-stopped
+    ports:
+      - "9091:9091"
+    command:
+      - "--web.enable-lifecycle"
+    networks:
+      - aiops-network
+    healthcheck:
+      test: ["CMD", "wget", "-qO-", "http://localhost:9091/-/healthy"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
