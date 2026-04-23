@@ -1,0 +1,115 @@
+{{ define "correlation.alert" }}
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="UTF-8">
+  <style>
+    body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; margin: 0; padding: 20px; background: #f5f6fa; }
+    .container { max-width: 640px; margin: 0 auto; background: #ffffff; border-radius: 8px; overflow: hidden; box-shadow: 0 2px 8px rgba(0,0,0,0.1); }
+    .header { background: linear-gradient(135deg, #8e44ad, #6c3483); color: #fff; padding: 20px 24px; }
+    .header-resolved { background: linear-gradient(135deg, #27ae60, #2ecc71); }
+    .header h1 { margin: 0; font-size: 20px; font-weight: 600; }
+    .header p { margin: 4px 0 0; font-size: 13px; opacity: 0.9; }
+    .body { padding: 24px; }
+    .root-cause-box { background: #fdf2f8; border: 2px solid #e74c3c; border-radius: 8px; padding: 16px; margin-bottom: 16px; text-align: center; }
+    .root-cause-box h2 { margin: 0 0 8px; font-size: 18px; color: #c0392b; }
+    .root-cause-box .label-tag { display: inline-block; background: #e74c3c; color: #fff; padding: 6px 16px; border-radius: 20px; font-size: 14px; font-weight: 600; letter-spacing: 0.5px; }
+    .root-cause-box.resolved { border-color: #27ae60; background: #f0fdf4; }
+    .root-cause-box.resolved h2 { color: #27ae60; }
+    .root-cause-box.resolved .label-tag { background: #27ae60; }
+    .alert-card { background: #f8f9fa; border-left: 4px solid #8e44ad; border-radius: 4px; padding: 16px; margin-bottom: 16px; }
+    .alert-card.resolved { border-left-color: #27ae60; }
+    .label { font-size: 11px; font-weight: 600; text-transform: uppercase; color: #7f8c8d; letter-spacing: 0.5px; margin-bottom: 4px; }
+    .value { font-size: 14px; color: #2c3e50; margin-bottom: 12px; word-break: break-word; }
+    .meta-grid { display: flex; flex-wrap: wrap; gap: 12px; margin-bottom: 12px; }
+    .meta-item { flex: 1; min-width: 120px; background: #fff; border: 1px solid #ecf0f1; border-radius: 4px; padding: 8px 12px; }
+    .btn { display: inline-block; background: #8e44ad; color: #fff !important; text-decoration: none; padding: 10px 20px; border-radius: 4px; font-size: 13px; font-weight: 600; margin-top: 8px; }
+    .btn-logs { background: #e67e22; margin-left: 8px; }
+    .footer { padding: 16px 24px; background: #f8f9fa; border-top: 1px solid #ecf0f1; font-size: 12px; color: #95a5a6; text-align: center; }
+    .footer a { color: #8e44ad; text-decoration: none; }
+  </style>
+</head>
+<body>
+  <div class="container">
+
+    {{ if eq .Status "resolved" }}
+    <div class="header header-resolved">
+      <h1>✅ LCP CORRELATION — RESOLVED</h1>
+      <p>Root cause cleared: {{ .GroupLabels.root_cause }}</p>
+    </div>
+    {{ else }}
+    <div class="header">
+      <h1>🔍 LCP CORRELATION ALERT</h1>
+      <p>Automated root-cause analysis detected infrastructure correlation</p>
+    </div>
+    {{ end }}
+
+    <div class="body">
+
+      {{ range .Alerts }}
+      <div class="root-cause-box {{ if eq .Status "resolved" }}resolved{{ end }}">
+        <h2>Root Cause Identified</h2>
+        <span class="label-tag">{{ .Labels.root_cause }}</span>
+      </div>
+
+      <div class="alert-card {{ if eq .Status "resolved" }}resolved{{ end }}">
+        <div class="label">Alert</div>
+        <div class="value"><strong>{{ .Labels.alertname }}</strong></div>
+
+        <div class="label">Summary</div>
+        <div class="value">{{ .Annotations.summary }}</div>
+
+        {{ if .Annotations.description }}
+        <div class="label">Description</div>
+        <div class="value">{{ .Annotations.description }}</div>
+        {{ end }}
+
+        {{ if .Annotations.root_cause_detail }}
+        <div class="label">Root Cause Detail</div>
+        <div class="value" style="font-family: monospace; font-size: 12px; background: #2c3e50; color: #ecf0f1; padding: 12px; border-radius: 4px;">{{ .Annotations.root_cause_detail }}</div>
+        {{ end }}
+
+        <div class="meta-grid">
+          {{ if .Annotations.platform }}
+          <div class="meta-item">
+            <div class="label">Platform</div>
+            <div class="value">{{ .Annotations.platform }}</div>
+          </div>
+          {{ end }}
+          <div class="meta-item">
+            <div class="label">Severity</div>
+            <div class="value">{{ .Labels.severity | toUpper }}</div>
+          </div>
+          <div class="meta-item">
+            <div class="label">Source</div>
+            <div class="value">{{ .Labels.source }}</div>
+          </div>
+        </div>
+
+        {{ if .Annotations.runbook }}
+        <div class="label">Runbook</div>
+        <div class="value">{{ .Annotations.runbook }}</div>
+        {{ end }}
+
+        {{ if .Annotations.grafana_dashboard }}
+        <a href="{{ .Annotations.grafana_dashboard }}" class="btn">📊 Correlation Dashboard</a>
+        {{ end }}
+
+        {{ if .Annotations.slow_query_log }}
+        <a href="{{ .Annotations.slow_query_log }}" class="btn btn-logs">🐢 Slow Query Logs</a>
+        {{ end }}
+
+      </div>
+      {{ end }}
+    </div>
+
+    <div class="footer">
+      AIOps LCP Correlation System &bull;
+      <a href="http://10.10.2.77:3000/d/lcp-correlation">Dashboard</a> &bull;
+      <a href="http://10.10.2.77:9090">Prometheus</a> &bull;
+      <a href="http://10.10.2.77:9093">Alertmanager</a>
+    </div>
+  </div>
+</body>
+</html>
+{{ end }}

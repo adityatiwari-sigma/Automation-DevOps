@@ -45,6 +45,16 @@ route:
       repeat_interval: 10m
       continue: true
 
+    # ── LCP CORRELATION: root-cause diagnosis alerts ──
+    - match_re:
+        root_cause: ".+"
+      receiver: "lcp-correlation"
+      group_by: ["alertname", "root_cause", "platform"]
+      group_wait: 15s
+      group_interval: 1m
+      repeat_interval: 15m
+      continue: false
+
     # ── P1: CRITICAL  —  immediate escalation ──
     - match:
         severity: p1
@@ -118,6 +128,15 @@ receivers:
         html: '{{ template "email.alert" . }}'
         headers:
           Subject: 'ℹ️ [P3-LOW] {{ .GroupLabels.alertname }} — daily digest'
+
+  # ── LCP Correlation: enriched root-cause email ──
+  - name: "lcp-correlation"
+    email_configs:
+      - to: "aditya.tiwari@sigmainfo.net"
+        send_resolved: true
+        html: '{{ template "correlation.alert" . }}'
+        headers:
+          Subject: '🔍 [LCP-CORRELATION] {{ .GroupLabels.alertname }} — Root Cause: {{ .GroupLabels.root_cause }}'
 
 # ────────────────────────────────────────────────────────────
 # INHIBITION RULES

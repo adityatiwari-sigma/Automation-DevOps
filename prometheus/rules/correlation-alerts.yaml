@@ -1,0 +1,57 @@
+# ============================================================
+# LCP CORRELATION ALERTING RULES (Prometheus-side)
+# Auto root-cause labeling when LCP degrades (>4000ms)
+#
+# These rules handle correlations where BOTH signals live
+# in Prometheus (LCP from Pushgateway + CPU/Memory from
+# Node Exporter). PHP-FPM and MySQL root causes are handled
+# by Loki correlation rules (loki/rules/fake/correlation-rules.yaml)
+# since those signals come from logs already in Loki.
+# ============================================================
+groups:
+
+  - name: lcp-correlation-alerts
+    interval: 15s
+    rules:
+
+      # ── CPU > 85% → CPU bottleneck ──
+      # Uses existing Node Exporter on the remote server
+      - alert: LcpDegraded_CpuBottleneck
+        expr: |
+          (max(probe_lcp_ms) > 4000)
+          and on()
+          ((100 - (avg(rate(node_cpu_seconds_total{mode="idle",instance_name="dev-regenics"}[5m])) * 100)) > 85)
+        for: 2m
+        labels:
+          severity: p1
+          tier: critical
+          source: prometheus
+          root_cause: cpu_bottleneck
+          platform: "dev.regenics.com"
+        annotations:
+          summary: "🔍 LCP Degraded — Root Cause: CPU Bottleneck"
+          description: "LCP exceeds 4000ms and server CPU usage is above 85%. The server is compute-bound."
+          root_cause_detail: "CPU usage > 85% — server is compute-saturated"
+          runbook: "1. Identify CPU-heavy processes (top/htop)  2. Check for runaway PHP processes  3. Consider scaling or optimizing code"
+          grafana_dashboard: "http://10.10.2.77:3000/d/lcp-correlation?orgId=1"
+
+      # ── All infra metrics normal → check recent deploy ──
+      # Fires when LCP is high but CPU is fine
+      - alert: LcpDegraded_ServerHealthy
+        expr: |
+          (max(probe_lcp_ms) > 4000)
+          and on()
+          ((100 - (avg(rate(node_cpu_seconds_total{mode="idle",instance_name="dev-regenics"}[5m])) * 100)) < 85)
+        for: 2m
+        labels:
+          severity: p2
+          tier: high
+          source: prometheus
+          root_cause: check_recent_deploy
+          platform: "dev.regenics.com"
+        annotations:
+          summary: "🔍 LCP Degraded — Server Healthy, Check Recent Deploy"
+          description: "LCP exceeds 4000ms but CPU usage is within normal range. This likely indicates an application-level issue from a recent code deployment."
+          root_cause_detail: "Infrastructure metrics normal — suspect application code change or external dependency"
+          runbook: "1. Check recent git deployments  2. Review application error logs  3. Check external API dependencies  4. Verify CDN / third-party scripts"
+          grafana_dashboard: "http://10.10.2.77:3000/d/lcp-correlation?orgId=1"

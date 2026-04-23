@@ -1,0 +1,60 @@
+# ============================================================
+# LCP CORRELATION RULES (Loki-side)
+# Root-cause labeling from log signals already in Loki.
+#
+# These complement the Prometheus-side correlation rules
+# (prometheus/rules/correlation-alerts.yaml) which handle
+# CPU/memory correlations. PHP-FPM and MySQL root causes
+# must live here because the signals come from logs pushed
+# by Promtail → Loki (not from Prometheus metrics).
+#
+# Existing Loki alerts (FPM_WorkerPoolExhaustion, P2_MySQLIssuesHigh)
+# handle auto-remediation. These rules add root_cause labels
+# for the enriched correlation email and dashboard linking.
+# ============================================================
+groups:
+
+  - name: lcp-correlation-log-rules
+    interval: 15s
+    rules:
+
+      # ── PHP-FPM max_children reached → worker pool exhausted ──
+      # Detects max_children log events from PHP-FPM error logs
+      # already pushed to Loki by Promtail
+      - alert: LcpCorrelation_WorkerPoolExhausted
+        expr: |
+          sum(count_over_time({platform="php-fpm"} |~ "(?i)(server reached pm.max_children|max_children)" [5m])) > 0
+        for: 0m
+        labels:
+          severity: p1
+          tier: critical
+          source: loki
+          root_cause: worker_pool_exhausted
+          platform: "dev.regenics.com"
+        annotations:
+          summary: "🔍 Root Cause Detected: PHP-FPM Worker Pool Exhausted"
+          description: "PHP-FPM is logging 'max_children reached' events. The application server cannot accept new requests — workers are fully consumed."
+          root_cause_detail: "PHP-FPM hit pm.max_children — new requests are queuing and timing out"
+          runbook: "1. Check pm.max_children setting  2. Increase pool size or optimize slow PHP scripts  3. Check for long-running requests"
+          grafana_dashboard: "http://10.10.2.77:3000/d/lcp-correlation?orgId=1"
+
+      # ── MySQL slow queries / errors → slow DB query ──
+      # Detects slow query and error events from MySQL logs
+      # already pushed to Loki by Promtail
+      - alert: LcpCorrelation_SlowDbQuery
+        expr: |
+          sum(count_over_time({platform="mysql"} |~ "(?i)(slow\\s*query|Query_time|Lock_time|lock\\s+time|table.*is\\s+full)" [5m])) > 3
+        for: 0m
+        labels:
+          severity: p1
+          tier: critical
+          source: loki
+          root_cause: slow_db_query
+          platform: "dev.regenics.com"
+        annotations:
+          summary: "🔍 Root Cause Detected: Slow Database Queries"
+          description: "MySQL logs show elevated slow query activity. Database performance is degraded and likely impacting page load times."
+          root_cause_detail: "MySQL slow query rate elevated — check slow query log for offending queries"
+          slow_query_log: "http://10.10.2.77:3000/d/lcp-correlation?orgId=1&viewPanel=114"
+          runbook: "1. Check MySQL slow query log in the correlation dashboard  2. EXPLAIN the top offending queries  3. Add missing indexes  4. Check for table locks"
+          grafana_dashboard: "http://10.10.2.77:3000/d/lcp-correlation?orgId=1"
