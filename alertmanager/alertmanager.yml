@@ -9,8 +9,8 @@ global:
   # ── SMTP settings for email notifications ──
   # UPDATE: Replace with your actual SMTP credentials
   smtp_smarthost: "smtp.gmail.com:587"
-  smtp_from: "aditya.tiwari@sigmainfo.net"
-  smtp_auth_username: "aditya.tiwari@sigmainfo.net"
+  smtp_from: "" #Email ID here
+  smtp_auth_username: "" #Email ID here
   smtp_auth_password: "" #App Password here
   smtp_require_tls: true
 
@@ -114,7 +114,7 @@ receivers:
   # ── P2: Email only ──
   - name: "p2-high"
     email_configs:
-      - to: "aditya.tiwari@sigmainfo.net"
+      - to: "" #Email ID here
         send_resolved: true
         html: '{{ template "email.alert" . }}'
         headers:
@@ -123,7 +123,7 @@ receivers:
   # ── P3: Email daily digest ──
   - name: "p3-daily"
     email_configs:
-      - to: "aditya.tiwari@sigmainfo.net"
+      - to: "" #Email ID here
         send_resolved: true
         html: '{{ template "email.alert" . }}'
         headers:
