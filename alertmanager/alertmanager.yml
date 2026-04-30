@@ -11,7 +11,7 @@ global:
   smtp_smarthost: "smtp.gmail.com:587"
   smtp_from: "aditya.tiwari@sigmainfo.net"
   smtp_auth_username: "aditya.tiwari@sigmainfo.net"
-  smtp_auth_password: "dycppwcjukmgkcfj"
+  smtp_auth_password: "" #App Password here
   smtp_require_tls: true
 
 # ────────────────────────────────────────────────────────────
