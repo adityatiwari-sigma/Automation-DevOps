@@ -90,6 +90,7 @@ services:
       interval: 30s
       timeout: 10s
       retries: 3
+      start_period: 90s
 
   # ──────────────────────────────────────────────────────────
   # PROMETHEUS  —  metrics + alerting rules
@@ -173,6 +174,7 @@ services:
       - GF_FEATURE_TOGGLES_ENABLE=publicDashboards
       - GF_UNIFIED_ALERTING_ENABLED=true
       - GF_ALERTING_ENABLED=false
+      - GF_SECURITY_ANGULAR_SUPPORT_ENABLED=true
     volumes:
       - grafana-data:/var/lib/grafana
       - ./grafana/provisioning:/etc/grafana/provisioning:ro
