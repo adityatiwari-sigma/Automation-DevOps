@@ -250,7 +250,7 @@ def check_endpoint_health(cfg: dict | None) -> list[CheckResult]:
         ("Alertmanager", f"http://{local}:{ports['alertmanager']}/-/healthy"),
         ("Grafana",      f"http://{local}:{ports['grafana']}/api/health"),
         ("Pushgateway",  f"http://{local}:{ports['pushgateway']}/-/healthy"),
-        ("Webhook",      f"http://127.0.0.1:{ports['webhook']}/health"),
+        ("Webhook",      f"http://{local}:{ports['webhook']}"),
     ]
 
     for name, url in endpoints:
@@ -323,20 +323,20 @@ def check_webhook_service() -> list[CheckResult]:
     ))
 
     # Health endpoint
-    ok_http, http_detail = _http_get("http://127.0.0.1:5051/health")
+    ok_http, http_detail = _http_get("http://127.0.0.1:5051")
     auto_rem = "unknown"
     if ok_http:
         try:
-            with urllib.request.urlopen("http://127.0.0.1:5051/health", timeout=3) as r:
+            with urllib.request.urlopen("http://127.0.0.1:5051", timeout=3) as r:
                 body = json.loads(r.read())
                 auto_rem = str(body.get("auto_remediate", "unknown"))
         except Exception:
             pass
     results.append(CheckResult(
-        "webhook: HTTP /health",
+        "webhook: HTTP",
         ok_http,
         f"{http_detail} · auto_remediate={auto_rem}",
-        "" if ok_http else "Check: curl http://localhost:5051/health"
+        "" if ok_http else "Check: curl http://localhost:5051"
     ))
 
     return results

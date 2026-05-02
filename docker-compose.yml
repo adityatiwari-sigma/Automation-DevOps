@@ -91,7 +91,7 @@ services:
     container_name: prometheus
     restart: unless-stopped
     ports:
-      - "127.0.0.1:${PROMETHEUS_PORT:-9090}:9090"
+      - "${LOCAL_IP:-0.0.0.0}:${PROMETHEUS_PORT:-9090}:9090"
     volumes:
       - ./prometheus/prometheus.yml:/etc/prometheus/prometheus.yml:ro
       - ./prometheus/rules:/etc/prometheus/rules:ro
@@ -122,7 +122,7 @@ services:
     container_name: alertmanager
     restart: unless-stopped
     ports:
-      - "127.0.0.1:${ALERTMANAGER_PORT:-9093}:9093"
+      - "${LOCAL_IP:-0.0.0.0}:${ALERTMANAGER_PORT:-9093}:9093"
     volumes:
       - ./alertmanager/alertmanager.yml:/etc/alertmanager/alertmanager.yml:ro
       - ./alertmanager/templates:/etc/alertmanager/templates:ro
