@@ -552,7 +552,7 @@ curl -X POST http://localhost:3100/loki/api/v1/rules/reload 2>/dev/null || \
 
 ## Support
 
-**Platform Owner:** Aditya Tiwari, DevOps Engineer, Sigma Informatics
+**Platform Owner:** Aditya Tiwari, DevOps Intern, Sigma Infosolutions
 
 **Logs to check first:**
 - Auto-remediation actions: `Automation-DevOps/auto-remediation.log`
