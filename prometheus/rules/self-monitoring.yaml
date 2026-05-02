@@ -1,0 +1,95 @@
+# ============================================================
+# SELF-MONITORING ALERTS — watches the monitoring stack itself
+# If Prometheus can't scrape a target, you'll know.
+# ============================================================
+groups:
+
+  - name: monitoring-stack-health
+    interval: 30s
+    rules:
+
+      # Any scrape target goes down
+      - alert: TargetDown
+        expr: up == 0
+        for: 2m
+        labels:
+          severity: p2
+          tier: high
+          service: monitoring
+          source: prometheus
+        annotations:
+          summary: "Scrape target down: {{ $labels.job }} / {{ $labels.instance }}"
+          description: "Prometheus cannot reach {{ $labels.job }} ({{ $labels.instance }}) for 2 minutes."
+          platform: "infrastructure"
+          environment: "production"
+          runbook: "Check if the exporter process is running. Verify network connectivity."
+
+      # Prometheus itself has too many scrape errors
+      - alert: PrometheusScrapeFailing
+        expr: |
+          rate(prometheus_target_scrape_pool_exceeded_target_limit_total[5m]) > 0
+          or rate(scrape_duration_seconds[5m]) > 10
+        for: 5m
+        labels:
+          severity: p3
+          tier: low
+          service: prometheus
+          source: prometheus
+        annotations:
+          summary: "Prometheus scrape failures detected"
+          description: "Prometheus is experiencing scrape pool limits or slow scrapes."
+          platform: "infrastructure"
+          environment: "production"
+
+      # Alertmanager notification failures
+      - alert: AlertmanagerNotificationFailing
+        expr: |
+          rate(alertmanager_notifications_failed_total[5m]) > 0
+        for: 5m
+        labels:
+          severity: p2
+          tier: high
+          service: alertmanager
+          source: prometheus
+        annotations:
+          summary: "Alertmanager failing to send notifications"
+          description: "Alertmanager has notification failures. Check SMTP or webhook config."
+          platform: "infrastructure"
+          environment: "production"
+          runbook: "Check alertmanager logs: docker logs alertmanager. Verify SMTP credentials in config.json."
+
+      # Loki ingestion lag
+      - alert: LokiIngestionLagging
+        expr: |
+          (time() - loki_ingester_stream_shards_factor) > 300
+        for: 5m
+        labels:
+          severity: p3
+          tier: low
+          service: loki
+          source: prometheus
+        annotations:
+          summary: "Loki ingestion may be behind"
+          description: "Loki ingester metrics indicate possible lag."
+          platform: "infrastructure"
+          environment: "production"
+
+      # Disk running low on the monitoring machine (separate from app server check)
+      - alert: MonitoringDiskLow
+        expr: |
+          (
+            node_filesystem_avail_bytes{job="node-exporter-local", mountpoint="/"}
+            / node_filesystem_size_bytes{job="node-exporter-local", mountpoint="/"}
+          ) < 0.15
+        for: 15m
+        labels:
+          severity: p2
+          tier: high
+          service: node
+          source: prometheus
+        annotations:
+          summary: "Monitoring server disk below 15%"
+          description: "The monitoring laptop's root filesystem is nearly full. This will cause Prometheus and Loki data loss."
+          platform: "infrastructure"
+          environment: "production"
+          runbook: "Check docker volume usage: docker system df. Reduce Prometheus retention or clear old Loki chunks."

@@ -33,7 +33,7 @@ groups:
           description: "LCP exceeds 4000ms and server CPU usage is above 85%. The server is compute-bound."
           root_cause_detail: "CPU usage > 85% — server is compute-saturated"
           runbook: "1. Identify CPU-heavy processes (top/htop)  2. Check for runaway PHP processes  3. Consider scaling or optimizing code"
-          grafana_dashboard: "http://10.10.2.77:3000/d/lcp-correlation?orgId=1"
+          grafana_dashboard: "http://localhost:3000/d/lcp-correlation?orgId=1"
 
       # ── All infra metrics normal → check recent deploy ──
       # Fires when LCP is high but CPU is fine
@@ -54,4 +54,4 @@ groups:
           description: "LCP exceeds 4000ms but CPU usage is within normal range. This likely indicates an application-level issue from a recent code deployment."
           root_cause_detail: "Infrastructure metrics normal — suspect application code change or external dependency"
           runbook: "1. Check recent git deployments  2. Review application error logs  3. Check external API dependencies  4. Verify CDN / third-party scripts"
-          grafana_dashboard: "http://10.10.2.77:3000/d/lcp-correlation?orgId=1"
+          grafana_dashboard: "http://localhost:3000/d/lcp-correlation?orgId=1"

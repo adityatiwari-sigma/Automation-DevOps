@@ -1,129 +1,116 @@
-#!/bin/bash
+#!/usr/bin/env bash
+set -euo pipefail
 
 # ==============================================================================
-# Auto-Remediation System Setup Script
+# AIOps Auto-Remediation — Setup & Deploy Script
+#
+# Usage:
+#   ./setup.sh              — full install
+#   ./setup.sh --dry-run    — preview without making changes
+#
+# Prerequisites:
+#   1. config.json must exist (copy from config.example.json and fill in values)
+#   2. python3 generate_configs.py must have been run (creates .env and YAML configs)
+#   3. pip install -r requirements.txt in the project directory
 # ==============================================================================
-
-set -e
 
 DRY_RUN=false
-if [[ "$1" == "--dry-run" ]]; then
-    DRY_RUN=true
-    echo "################################################################"
-    echo "# RUNNING IN DRY-RUN MODE: No changes will be applied          #"
-    echo "################################################################"
-fi
+[[ "${1:-}" == "--dry-run" ]] && DRY_RUN=true && echo "=== DRY-RUN MODE: no changes will be applied ==="
 
-# Helper to execute or just print commands
-run_cmd() {
-    if [ "$DRY_RUN" = true ]; then
-        echo "[DRY-RUN] Executing: $@"
-    else
-        # If it's a bash -c command, we need to handle it specially
-        if [[ "$1" == "bash" && "$2" == "-c" ]]; then
-            shift 2
-            eval "$@"
-        else
-            "$@"
-        fi
-    fi
+run() {
+    if [ "$DRY_RUN" = true ]; then echo "[dry-run] $*"; else "$@"; fi
 }
 
-echo "--- Initializing Setup ---"
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+DEPLOY_DIR="/opt/aops"
+SERVICE_FILE="$SCRIPT_DIR/auto-remediation-webhook.service"
 
-# 1. Create directories
-run_cmd mkdir -p /opt/monitoring/remediate
+# ── 0. Pre-flight checks ──────────────────────────────────────────────────────
+echo "--- Pre-flight checks ---"
 
-# 2. Install remediation scripts
-echo "Installing remediation scripts to /opt/monitoring/remediate/..."
-run_cmd cp remediate/fpm-reload.sh /opt/monitoring/remediate/
-run_cmd cp remediate/redis-flush-cache.sh /opt/monitoring/remediate/
-run_cmd cp remediate/nginx-file-limit.sh /opt/monitoring/remediate/
-run_cmd chmod 750 /opt/monitoring/remediate/fpm-reload.sh
-run_cmd chmod 750 /opt/monitoring/remediate/redis-flush-cache.sh
-run_cmd chmod 750 /opt/monitoring/remediate/nginx-file-limit.sh
-
-# 3. Install webhook.py
-echo "Installing webhook.py to /opt/monitoring/..."
-run_cmd cp webhook.py /opt/monitoring/
-run_cmd chmod 644 /opt/monitoring/webhook.py
-
-# 4. Install and enable the systemd service
-echo "Setting up systemd service..."
-run_cmd cp webhook/auto-remediation-webhook.service /etc/systemd/system/
-if [ ! -f /etc/default/auto-remediation-webhook ]; then
-    run_cmd bash -c "echo 'AUTO_REMEDIATE=true' > /etc/default/auto-remediation-webhook"
-    run_cmd bash -c "echo 'WEBHOOK_PORT=5001' >> /etc/default/auto-remediation-webhook"
-    run_cmd bash -c "echo 'REMEDIATION_DIR=/opt/monitoring/remediate' >> /etc/default/auto-remediation-webhook"
-    run_cmd bash -c "echo 'SLACK_WEBHOOK_URL=' >> /etc/default/auto-remediation-webhook"
+if [ ! -f "$SCRIPT_DIR/config.json" ]; then
+    echo "ERROR: config.json not found."
+    echo "       Copy config.example.json → config.json and fill in your values, then re-run."
+    exit 1
 fi
-run_cmd systemctl daemon-reload
-run_cmd systemctl enable auto-remediation-webhook
-run_cmd systemctl restart auto-remediation-webhook
 
-# 5. Create log file with correct permissions
-echo "Initializing log file..."
-run_cmd touch /var/log/auto-remediation.log
-run_cmd chown root:adm /var/log/auto-remediation.log
-run_cmd chmod 0640 /var/log/auto-remediation.log
+if [ ! -f "$SCRIPT_DIR/.env" ] || [ ! -f "$SCRIPT_DIR/prometheus/prometheus.yml" ]; then
+    echo "ERROR: Generated configs missing. Run:  python3 generate_configs.py"
+    exit 1
+fi
 
-# 6. Install logrotate config
-echo "Installing logrotate configuration..."
-run_cmd cp webhook/auto-remediation /etc/logrotate.d/
+python3 "$SCRIPT_DIR/generate_configs.py" --check
+echo "Config validation: OK"
 
-# 7. Provision SSH key for root (webhook run by root needs access to remote targets)
-echo "Provisioning SSH key for remote access..."
-USER_ID_RSA="/home/adityatiwari/.ssh/id_ed25519"
-if [ -f "$USER_ID_RSA" ]; then
-    run_cmd mkdir -p /root/.ssh
-    run_cmd cp "$USER_ID_RSA" /root/.ssh/id_ed25519
-    run_cmd chmod 600 /root/.ssh/id_ed25519
-    echo "SSH key provisioned for root"
+# ── 1. Create deploy directory ────────────────────────────────────────────────
+echo "--- Installing files to $DEPLOY_DIR ---"
+run mkdir -p "$DEPLOY_DIR/remediate"
+
+# ── 2. Copy application files ─────────────────────────────────────────────────
+run cp "$SCRIPT_DIR/webhook.py"       "$DEPLOY_DIR/"
+run cp "$SCRIPT_DIR/config_loader.py" "$DEPLOY_DIR/"
+run cp "$SCRIPT_DIR/config.json"      "$DEPLOY_DIR/"
+run chmod 600 "$DEPLOY_DIR/config.json"   # credentials — owner-only
+
+for script in fpm-reload nginx-file-limit redis-flush-cache generic_triage; do
+    run cp "$SCRIPT_DIR/remediate/${script}.sh"    "$DEPLOY_DIR/remediate/"
+    run chmod 750 "$DEPLOY_DIR/remediate/${script}.sh"
+done
+run cp "$SCRIPT_DIR/remediate/ssh_helper.py" "$DEPLOY_DIR/remediate/"
+run chmod 640 "$DEPLOY_DIR/remediate/ssh_helper.py"
+
+# ── 3. Install Python dependencies ────────────────────────────────────────────
+echo "--- Installing Python dependencies ---"
+run pip3 install -r "$SCRIPT_DIR/requirements.txt" --quiet
+
+# ── 4. Install systemd service ────────────────────────────────────────────────
+echo "--- Installing systemd service ---"
+# Patch the WorkingDirectory to the actual deploy path
+if [ "$DRY_RUN" = false ]; then
+    sed "s|WorkingDirectory=.*|WorkingDirectory=$DEPLOY_DIR|g" \
+        "$SERVICE_FILE" > /etc/systemd/system/auto-remediation-webhook.service
 else
-    echo "Warning: SSH key not found at $USER_ID_RSA - remote remediation may fail"
+    echo "[dry-run] Would write /etc/systemd/system/auto-remediation-webhook.service"
 fi
 
-# 8. Back up then replaces alertmanager.yml and both rules files
-echo "Updating configuration files..."
-FILES=(
-    "alertmanager/alertmanager.yml"
-    "prometheus/rules/app-alerts.yaml"
-    "loki/rules/fake/loki-alerts.yaml"
-)
+run systemctl daemon-reload
+run systemctl enable auto-remediation-webhook
+run systemctl restart auto-remediation-webhook
 
-for file in "${FILES[@]}"; do
-    if [ -f "$file" ]; then
-        run_cmd cp "$file" "$file.bak"
-        echo "Backed up $file to $file.bak"
-    else
-        echo "Warning: $file not found, skipping backup."
-    fi
+# ── 5. Create log files with correct permissions ──────────────────────────────
+echo "--- Setting up log files ---"
+for logfile in /var/log/auto-remediation.log /var/log/auto-remediation-access.log /var/log/auto-remediation-error.log; do
+    run touch "$logfile"
+    run chmod 0640 "$logfile"
 done
 
-# 8. Reload Prometheus, Alertmanager, and Loki
-echo "Reloading monitoring services (Docker)..."
+# ── 6. Install logrotate ──────────────────────────────────────────────────────
+echo "--- Installing logrotate config ---"
+run cp "$SCRIPT_DIR/webhook/auto-remediation" /etc/logrotate.d/
+
+# ── 7. Reload Docker monitoring services ─────────────────────────────────────
+echo "--- Reloading monitoring services ---"
 for svc in alertmanager prometheus loki; do
     if [ "$DRY_RUN" = true ]; then
-        echo "[DRY-RUN] docker kill -s HUP $svc"
+        echo "[dry-run] docker kill -s HUP $svc"
     else
-        # Check if container is running before sending HUP
-        if docker ps --format '{{.Names}}' | grep -q "^$svc$"; then
-            if docker kill -s HUP "$svc" >/dev/null 2>&1; then
-                echo "Successfully reloaded $svc"
-            else
-                echo "Failed to reload $svc (container may be starting up)"
-            fi
+        if docker ps --format '{{.Names}}' | grep -q "^${svc}$"; then
+            docker kill -s HUP "$svc" >/dev/null 2>&1 && echo "Reloaded $svc" || echo "Warning: could not reload $svc"
         else
-            echo "Skipping reload for $svc: Container is not running"
+            echo "Skipping $svc — container not running"
         fi
     fi
 done
 
-# 9. Final health check
-echo "--- Setup Complete ---"
+# ── 8. Health check ────────────────────────────────────────────────────────────
+WEBHOOK_PORT=$(python3 -c "import json; print(json.load(open('$SCRIPT_DIR/config.json'))['ports']['webhook'])")
+echo "--- Health check ---"
 if [ "$DRY_RUN" = false ]; then
-    echo "Final health check:"
-    curl -s http://127.0.0.1:5001/healthz || echo "Webhook not responding yet"
+    sleep 3
+    curl -sf "http://127.0.0.1:${WEBHOOK_PORT}/health" && echo " (webhook healthy)" || echo "Warning: webhook not responding yet — check: systemctl status auto-remediation-webhook"
 else
-    echo "[DRY-RUN] Health check: curl http://127.0.0.1:5001/healthz"
+    echo "[dry-run] Would check: curl http://127.0.0.1:${WEBHOOK_PORT}/health"
 fi
+
+echo ""
+echo "=== Setup complete ==="

@@ -9,7 +9,7 @@ global:
   scrape_timeout: 10s
   external_labels:
     cluster: "aiops-local"
-    environment: "production"
+    environment: "__PLATFORM_ENV__"
 
 # ────────────────────────────────────────────────────────────
 # ALERTING — forward firing rules to Alertmanager
@@ -18,7 +18,7 @@ alerting:
   alertmanagers:
     - static_configs:
         - targets:
-            - "alertmanager:9093"
+            - "alertmanager:__ALERTMANAGER_PORT__"
 
 # ────────────────────────────────────────────────────────────
 # RECORDING & ALERTING RULE FILES
@@ -35,14 +35,14 @@ scrape_configs:
   # ── Prometheus self-monitoring ──
   - job_name: "prometheus"
     static_configs:
-      - targets: ["localhost:9090"]
+      - targets: ["localhost:__PROMETHEUS_PORT__"]
         labels:
           service: prometheus
 
   # ── Local Node Exporter (host metrics) ──
   - job_name: "node-exporter-local"
     static_configs:
-      - targets: ["node-exporter:9100"]
+      - targets: ["node-exporter:__NODE_EXPORTER_PORT__"]
         labels:
           service: node-exporter
           instance_name: "aiops-host"
@@ -58,53 +58,53 @@ scrape_configs:
   # ── Loki internal metrics ──
   - job_name: "loki"
     static_configs:
-      - targets: ["loki:3100"]
+      - targets: ["loki:__LOKI_PORT__"]
         labels:
           service: loki
 
   # ── Alertmanager internal metrics ──
   - job_name: "alertmanager"
     static_configs:
-      - targets: ["alertmanager:9093"]
+      - targets: ["alertmanager:__ALERTMANAGER_PORT__"]
         labels:
           service: alertmanager
 
   # ── Remote Nginx Exporter ──
   - job_name: "nginx-exporter-remote"
     static_configs:
-      - targets: ["192.168.29.124:9113"]
+      - targets: ["__REMOTE_IP__:__NGINX_EXPORTER_PORT__"]
         labels:
           service: nginx
-          platform: "dev.regenics.com"
-          environment: "production"
-          instance_name: "dev-regenics"
+          platform: "__PLATFORM_NAME__"
+          environment: "__PLATFORM_ENV__"
+          instance_name: "__INSTANCE_NAME__"
 
   # ── Remote Node Exporter ──
   - job_name: "node-exporter-remote"
     static_configs:
-      - targets: ["192.168.29.124:9100"]
+      - targets: ["__REMOTE_IP__:__NODE_EXPORTER_PORT__"]
         labels:
           service: node-exporter
-          platform: "dev.regenics.com"
-          environment: "production"
-          instance_name: "dev-regenics"
+          platform: "__PLATFORM_NAME__"
+          environment: "__PLATFORM_ENV__"
+          instance_name: "__INSTANCE_NAME__"
 
   # ── Remote Promtail (scrapes nginx_request_duration_ms histogram) ──
   # honor_labels: false here — let Prometheus own the job/instance labels
   - job_name: "promtail-remote"
     honor_labels: false
     static_configs:
-      - targets: ["192.168.29.124:9080"]
+      - targets: ["__REMOTE_IP__:__PROMTAIL_PORT__"]
         labels:
           service: promtail
-          platform: "dev.regenics.com"
-          environment: "production"
-          instance_name: "dev-regenics"
+          platform: "__PLATFORM_NAME__"
+          environment: "__PLATFORM_ENV__"
+          instance_name: "__INSTANCE_NAME__"
 
   # ── Pushgateway (Playwright / CWV probe metrics) ──
   - job_name: "pushgateway"
     honor_labels: true
     static_configs:
-      - targets: ["192.168.29.25:9091"]
+      - targets: ["__LOCAL_IP__:__PUSHGATEWAY_PORT__"]
         labels:
           service: pushgateway

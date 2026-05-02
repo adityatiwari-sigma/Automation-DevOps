@@ -4,13 +4,12 @@
 groups:
 
   # ────────────────────────────────────────────────────────────
-  # P1 — CRITICAL / IMMEDIATE  (fires within 2 minutes)
+  # P1 — CRITICAL / IMMEDIATE
   # ────────────────────────────────────────────────────────────
   - name: p1-critical-metric-alerts
     interval: 15s
     rules:
 
-      # 5xx error rate exceeds 5% for 2 consecutive minutes
       - alert: P1_5xxErrorRateCritical
         expr: |
           (
@@ -18,7 +17,7 @@ groups:
             /
             sum(rate(promtail_custom_nginx_request_duration_ms_count[2m]))
           ) > 0.05
-        for: 0s
+        for: 2m
         labels:
           severity: p1
           tier: critical
@@ -26,19 +25,18 @@ groups:
           source: prometheus
           remediation: generic_triage
         annotations:
-          summary: "🚨 5xx error rate exceeds 5%"
-          description: "The HTTP 5xx error rate has been above 5% for 2 consecutive minutes. Current value: {{ $value | humanizePercentage }}."
+          summary: "5xx error rate exceeds 5%"
+          description: "HTTP 5xx error rate has been above 5% for 2 minutes. Current: {{ $value | humanizePercentage }}."
           platform: "dev.regenics.com"
           environment: "production"
-          error_sample: "5xx error rate = {{ $value | humanizePercentage }} — server errors impacting users"
+          error_sample: "5xx rate = {{ $value | humanizePercentage }}"
           grafana_dashboard: "http://10.10.2.77:3000/d/error-groups-v2?orgId=1&var-platform={{ $labels.platform }}"
           runbook: "Check nginx error logs. Verify upstream PHP-FPM is healthy. Check deployment status."
 
-      # Total 5xx count spike (absolute threshold)
       - alert: P1_5xxCountSpike
         expr: |
           sum(increase(nginx_http_requests_total{status=~"5.."}[2m])) > 50
-        for: 0s
+        for: 1m
         labels:
           severity: p1
           tier: critical
@@ -46,11 +44,11 @@ groups:
           source: prometheus
           remediation: generic_triage
         annotations:
-          summary: "🚨 5xx error count spike (>50 in 2min)"
-          description: "More than 50 HTTP 5xx errors in the last 2 minutes. Absolute count: {{ $value }}."
+          summary: "5xx count spike (>50 in 2 min)"
+          description: "More than 50 HTTP 5xx errors in the last 2 minutes. Count: {{ $value }}."
           platform: "dev.regenics.com"
           environment: "production"
-          error_sample: "5xx count = {{ $value }} in 2 minutes"
+          error_sample: "5xx count = {{ $value }} in 2 min"
           grafana_dashboard: "http://10.10.2.77:3000/d/error-groups-v2?orgId=1"
 
   # ────────────────────────────────────────────────────────────
@@ -60,7 +58,6 @@ groups:
     interval: 30s
     rules:
 
-      # High request latency (if histogram metrics available)
       - alert: P2_HighRequestLatency
         expr: |
           histogram_quantile(0.95, sum(rate(promtail_custom_nginx_request_duration_ms_bucket[5m])) by (le)) > 4500
@@ -71,13 +68,12 @@ groups:
           service: nginx
           source: prometheus
         annotations:
-          summary: "⚠️ P95 request latency exceeds 4500ms"
-          description: "The 95th percentile of request latency has been above 4500ms for 5 minutes. Current P95: {{ $value }}ms."
+          summary: "P95 request latency exceeds 4500ms"
+          description: "95th percentile latency above 4500ms for 5 minutes. Current P95: {{ $value }}ms."
           platform: "dev.regenics.com"
           environment: "production"
           grafana_dashboard: "http://10.10.2.77:3000/d/error-groups-v2?orgId=1"
- 
-      # Slow pages alert (P95 per URL > 4500ms)
+
       - alert: P2_SlowURLLatency
         expr: |
           histogram_quantile(0.95, sum by (le, uri) (rate(promtail_custom_nginx_request_duration_ms_bucket[5m]))) > 4500
@@ -88,12 +84,11 @@ groups:
           service: nginx
           source: prometheus
         annotations:
-          summary: "⚠️ P95 response time exceeds 4500ms for {{ $labels.uri }}"
-          description: "The 95th percentile of response time for '{{ $labels.uri }}' has been above 4500ms for 5 minutes. Current P95: {{ $value }}ms."
+          summary: "P95 response time > 4500ms for {{ $labels.uri }}"
+          description: "P95 for '{{ $labels.uri }}' above 4500ms for 5 minutes. Current P95: {{ $value }}ms."
           platform: "dev.regenics.com"
           environment: "production"
 
-      # Upstream connection errors
       - alert: P2_UpstreamConnectionErrors
         expr: |
           sum(rate(nginx_http_requests_total{status=~"502|503|504"}[5m])) > 0.5
@@ -104,7 +99,7 @@ groups:
           service: nginx
           source: prometheus
         annotations:
-          summary: "⚠️ Upstream connection errors (502/503/504)"
+          summary: "Upstream connection errors (502/503/504)"
           description: "Elevated 502/503/504 errors indicate backend PHP-FPM or upstream issues."
           platform: "dev.regenics.com"
           environment: "production"
@@ -117,7 +112,6 @@ groups:
     interval: 1m
     rules:
 
-      # Disk space running low
       - alert: P3_DiskSpaceLow
         expr: |
           (node_filesystem_avail_bytes{mountpoint="/"} / node_filesystem_size_bytes{mountpoint="/"}) < 0.20
@@ -128,12 +122,11 @@ groups:
           service: node
           source: prometheus
         annotations:
-          summary: "ℹ️ Disk space below 20%"
-          description: "Root filesystem has less than 20% free space. Current free: {{ $value | humanizePercentage }}."
+          summary: "Disk space below 20%"
+          description: "Root filesystem less than 20% free. Current free: {{ $value | humanizePercentage }}."
           platform: "infrastructure"
           environment: "production"
 
-      # High memory usage
       - alert: P3_HighMemoryUsage
         expr: |
           (1 - (node_memory_MemAvailable_bytes / node_memory_MemTotal_bytes)) > 0.85
@@ -144,12 +137,11 @@ groups:
           service: node
           source: prometheus
         annotations:
-          summary: "ℹ️ Memory usage above 85%"
-          description: "Memory usage has been above 85% for 30 minutes. Current usage: {{ $value | humanizePercentage }}."
+          summary: "Memory usage above 85%"
+          description: "Memory above 85% for 30 minutes. Current: {{ $value | humanizePercentage }}."
           platform: "infrastructure"
           environment: "production"
 
-      # High CPU usage
       - alert: P3_HighCPUUsage
         expr: |
           100 - (avg(rate(node_cpu_seconds_total{mode="idle"}[5m])) * 100) > 85
@@ -160,47 +152,48 @@ groups:
           service: node
           source: prometheus
         annotations:
-          summary: "ℹ️ CPU usage above 85%"
-          description: "Average CPU usage has been above 85% for 30 minutes."
+          summary: "CPU usage above 85%"
+          description: "Average CPU above 85% for 30 minutes."
           platform: "infrastructure"
           environment: "production"
 
   # ────────────────────────────────────────────────────────────
-  # AUTO-REMEDIATION — METRIC ALERTS
+  # AUTO-REMEDIATION — metric-triggered
   # ────────────────────────────────────────────────────────────
   - name: auto-remediation-alerts
+    interval: 30s
     rules:
+
       - alert: PHPFPMWorkerPoolExhaustion
         expr: phpfpm_active_processes{pool="www"} / phpfpm_max_active_processes{pool="www"} > 0.90
-        for: 0s
+        for: 1m
         labels:
           severity: p1
           remediation: generic_triage
         annotations:
-          summary: "🚨 PHP-FPM pool exhaustion (>90%)"
-          description: "Active processes are above 90% of max children for 1 minute."
+          summary: "PHP-FPM pool exhaustion (>90%)"
+          description: "Active processes above 90% of max_children for 1 minute."
 
       - alert: RedisMemoryHigh
         expr: redis_memory_used_bytes / redis_memory_max_bytes > 0.90
-        for: 0s
+        for: 2m
         labels:
           severity: p1
           remediation: generic_triage
         annotations:
-          summary: "🚨 Redis memory usage exceeds 90%"
-          description: "Redis instance is using more than 90% of its max memory."
+          summary: "Redis memory usage exceeds 90%"
+          description: "Redis using more than 90% of max memory for 2 minutes."
 
       - alert: HighHTTP5xxRate
         expr: |
           sum(rate(nginx_http_requests_total{status=~"5.."}[2m]))
           /
           sum(rate(nginx_http_requests_total[2m])) > 0.05
-        for: 0s
+        for: 2m
         labels:
           severity: p1
           service: nginx
           remediation: generic_triage
         annotations:
-          summary: "High HTTP 5xx error rate detected"
-          description: "More than 5% of requests are failing with 5xx errors"
-
+          summary: "High HTTP 5xx error rate"
+          description: "More than 5% of requests failing with 5xx errors for 2 minutes."

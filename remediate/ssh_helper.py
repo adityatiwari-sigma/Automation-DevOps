@@ -1,50 +1,66 @@
-import paramiko
+"""
+ssh_helper.py — executes a single command on the remote server via SSH.
+
+Usage:  python3 ssh_helper.py "<shell command>"
+        python3 ssh_helper.py "systemctl reload php8.4-fpm"
+
+Credentials are read from config.json — never passed as command-line arguments.
+"""
+
 import sys
 import os
 
-if len(sys.argv) < 6:
-    print("Usage: ssh_helper.py <ip> <user> <ssh_pw> <sudo_pw> <command>")
-    sys.exit(1)
+import paramiko
 
-ip = sys.argv[1]
-user = sys.argv[2]
-ssh_pw = sys.argv[3]
-sudo_pw = sys.argv[4]
-command = sys.argv[5]
+# Reach config_loader from the remediate/ subdirectory
+sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)) + "/..")
+import config_loader
 
-try:
+
+def run_remote(command: str) -> int:
+    cfg        = config_loader.load()
+    ip         = cfg["network"]["remote_ip"]
+    user       = cfg["ssh"]["user"]
+    ssh_pw     = cfg["ssh"].get("password", "")
+    sudo_pw    = cfg["ssh"].get("sudo_password", "")
+
     client = paramiko.SSHClient()
     client.set_missing_host_key_policy(paramiko.AutoAddPolicy())
-    
-    # Connect
-    if ssh_pw and ssh_pw != "YOUR_SSH_PASSWORD":
-        client.connect(ip, username=user, password=ssh_pw, timeout=10)
-    else:
-        # Fallback to key auth if no password provided
-        client.connect(ip, username=user, timeout=10)
-        
-    if sudo_pw and sudo_pw != "YOUR_SUDO_PASSWORD_IF_NEEDED" and sudo_pw != "":
-        # Escape double quotes in the command for bash -c
-        escaped_command = command.replace('"', '\\"')
-        full_cmd = f"echo '{sudo_pw}' | sudo -S bash -c \"{escaped_command}\""
-    else:
-        full_cmd = command
-    
-    stdin, stdout, stderr = client.exec_command(full_cmd)
-    
-    exit_status = stdout.channel.recv_exit_status()
-    out = stdout.read().decode('utf-8').strip()
-    err = stderr.read().decode('utf-8').strip()
-    
-    if out:
-        print(out)
-    if err and "sudo: a terminal is required" not in err:
-        print(err, file=sys.stderr)
-        
-    sys.exit(exit_status)
-    
-except Exception as e:
-    print(f"SSH Exception: {e}", file=sys.stderr)
-    sys.exit(1)
-finally:
-    client.close()
+
+    try:
+        connect_kwargs = {"username": user, "timeout": 15}
+        if ssh_pw:
+            connect_kwargs["password"] = ssh_pw
+        client.connect(ip, **connect_kwargs)
+
+        if sudo_pw:
+            # Wrap in sudo -S; escape single quotes in the command
+            safe_cmd = command.replace("'", "'\\''")
+            full_cmd = f"echo '{sudo_pw}' | sudo -S bash -c '{safe_cmd}'"
+        else:
+            full_cmd = command
+
+        _, stdout, stderr = client.exec_command(full_cmd)
+        exit_status = stdout.channel.recv_exit_status()
+        out = stdout.read().decode("utf-8", errors="replace").strip()
+        err = stderr.read().decode("utf-8", errors="replace").strip()
+
+        if out:
+            print(out)
+        if err and "sudo: a terminal is required" not in err:
+            print(err, file=sys.stderr)
+
+        return exit_status
+
+    except Exception as exc:
+        print(f"SSH error ({ip}): {exc}", file=sys.stderr)
+        return 1
+    finally:
+        client.close()
+
+
+if __name__ == "__main__":
+    if len(sys.argv) < 2:
+        print("Usage: ssh_helper.py <command>", file=sys.stderr)
+        sys.exit(1)
+    sys.exit(run_remote(sys.argv[1]))
