@@ -74,7 +74,7 @@ phpfpm_active_processes{pool="www"} / phpfpm_max_active_processes{pool="www"} > 
 ```
 **Remediation Steps:**
 1. `generic_triage.sh` fires automatically — check `auto-remediation.log` for the outcome.
-2. Verify the reload had effect: SSH to 10.10.2.21 and run `php-fpm8.4 -t` (test config) then `systemctl status php8.4-fpm`.
+2. Verify the reload had effect: SSH to <remote_ip> and run `php-fpm8.4 -t` (test config) then `systemctl status php8.4-fpm`.
 3. Identify which scripts are slow: query Loki for `{platform="php-fpm"} |~ "slow"` or check PHP slow-log if enabled.
 4. Check database query times: `{platform="mysql"} |~ "Query_time"` in Loki.
 5. Consider temporarily increasing `pm.max_children` on the remote server if traffic is legitimately elevated.
@@ -100,7 +100,7 @@ sum(rate(nginx_http_requests_total[2m])) > 0.05
 1. `generic_triage.sh` fires automatically — it queries both Loki and Prometheus to determine root cause and routes to `fpm-reload.sh`, `nginx-file-limit.sh`, or `redis-flush-cache.sh` as appropriate.
 2. Check `auto-remediation.log` for the decision and outcome.
 3. If auto-remediation reports SUCCESS but the error rate remains elevated, escalate.
-**Escalate If:** Error rate does not drop below 5% within 10 minutes of auto-remediation; `generic_triage.sh` times out (90-second limit); SSH connection to 10.10.2.21 fails.
+**Escalate If:** Error rate does not drop below 5% within 10 minutes of auto-remediation; `generic_triage.sh` times out (90-second limit); SSH connection to <remote_ip> fails.
 
 ---
 
@@ -213,7 +213,7 @@ and on()
 ((100 - (avg(rate(node_cpu_seconds_total{mode="idle",instance_name="dev-regenics"}[5m])) * 100)) > 85)
 ```
 **Remediation Steps:**
-1. SSH to 10.10.2.21 and run `top -b -n1 | head -20` to identify the CPU-consuming process.
+1. SSH to <remote_ip> and run `top -b -n1 | head -20` to identify the CPU-consuming process.
 2. Check for runaway PHP workers: `ps aux | grep php-fpm | sort -k3 -n`.
 3. Check for WordPress or Magento background jobs consuming CPU: look for `cron.php` or `bin/magento` in process list.
 4. Check the LCP correlation dashboard: `http://10.10.2.77:3000/d/lcp-correlation`.
@@ -288,7 +288,7 @@ histogram_quantile(0.95, sum by (le, uri) (rate(promtail_custom_nginx_request_du
 sum(rate(nginx_http_requests_total{status=~"502|503|504"}[5m])) > 0.5
 ```
 **Remediation Steps:**
-1. SSH to 10.10.2.21: `systemctl status php8.4-fpm --no-pager` — is the service running?
+1. SSH to <remote_ip>: `systemctl status php8.4-fpm --no-pager` — is the service running?
 2. Check PHP-FPM socket: `ls -la /var/run/php/php8.4-fpm.sock` — does it exist?
 3. Review PHP-FPM logs: `{platform="php-fpm"} |~ "error|fatal"` in Loki for the last 5 minutes.
 4. If PHP-FPM has crashed: `systemctl restart php8.4-fpm` (restart, not reload).
@@ -382,19 +382,19 @@ and on()
 **Stabilization Window:** for: 2m
 **Auto-Remediated:** No
 **Triggers When:** Prometheus's `up` metric is `0` for any scrape target (any job/instance combination), sustained for 2 minutes. This fires when Prometheus cannot successfully scrape a target — the exporter is down, the network is unreachable, or the target service has crashed.
-**Business Impact:** The monitoring system has lost visibility into one or more components. While the alert itself does not indicate a user-facing outage, a blind spot in monitoring means other alerts may not fire if the downed exporter was providing the metrics they depend on. For example, if the Node Exporter on 10.10.2.21 is down, no CPU/memory/disk P3 alerts will fire.
-**Root Cause:** The exporter process crashed or was stopped (Node Exporter, Nginx Exporter, or Promtail on 10.10.2.21), a network partition between 10.10.2.77 and 10.10.2.21, the remote server itself is down, a Docker container on 10.10.2.77 has crashed (Prometheus, Loki, Pushgateway, cAdvisor, Node Exporter), or a port conflict caused an exporter to fail to bind.
+**Business Impact:** The monitoring system has lost visibility into one or more components. While the alert itself does not indicate a user-facing outage, a blind spot in monitoring means other alerts may not fire if the downed exporter was providing the metrics they depend on. For example, if the Node Exporter on <remote_ip> is down, no CPU/memory/disk P3 alerts will fire.
+**Root Cause:** The exporter process crashed or was stopped (Node Exporter, Nginx Exporter, or Promtail on <remote_ip>), a network partition between 10.10.2.77 and <remote_ip>, the remote server itself is down, a Docker container on 10.10.2.77 has crashed (Prometheus, Loki, Pushgateway, cAdvisor, Node Exporter), or a port conflict caused an exporter to fail to bind.
 **Alert Expression:**
 ```promql
 up == 0
 ```
 **Remediation Steps:**
 1. Note the `job` and `instance` labels on the alert to identify which target is down.
-2. If it is a remote target (10.10.2.21): SSH to the server and check `systemctl status node-exporter` / `systemctl status promtail`.
+2. If it is a remote target (<remote_ip>): SSH to the server and check `systemctl status node-exporter` / `systemctl status promtail`.
 3. If it is a Docker container (on 10.10.2.77): `docker ps -a` — check if the container has exited. `docker logs <container>` for the reason.
-4. If it is a network issue: `ping 10.10.2.21` from 10.10.2.77; check if the LAN is healthy.
+4. If it is a network issue: `ping <remote_ip>` from 10.10.2.77; check if the LAN is healthy.
 5. Restart the downed service: `systemctl restart <service>` or `docker-compose restart <service>`.
-**Escalate If:** The remote server (10.10.2.21) is completely unreachable; multiple targets go down simultaneously (indicates a network or host-level failure); a Docker container restart loop is identified (`docker logs` showing repeated crashes).
+**Escalate If:** The remote server (<remote_ip>) is completely unreachable; multiple targets go down simultaneously (indicates a network or host-level failure); a Docker container restart loop is identified (`docker logs` showing repeated crashes).
 
 ---
 
@@ -432,7 +432,7 @@ P3 alerts represent infrastructure trends that require attention but not immedia
 **Source:** Prometheus metrics
 **Stabilization Window:** for: 30m
 **Auto-Remediated:** No
-**Triggers When:** The available bytes on the root filesystem (`/`) of the remote server (10.10.2.21) drop below 20% of total size, sustained for 30 minutes. Computed from `node_filesystem_avail_bytes` and `node_filesystem_size_bytes` from the Node Exporter.
+**Triggers When:** The available bytes on the root filesystem (`/`) of the remote server (<remote_ip>) drop below 20% of total size, sustained for 30 minutes. Computed from `node_filesystem_avail_bytes` and `node_filesystem_size_bytes` from the Node Exporter.
 **Business Impact:** At 20% free disk space, the server has time to plan and act before a crisis. If disk fills completely, MySQL will stop accepting writes (InnoDB cannot write redo logs), PHP-FPM will fail to write session files, and nginx will fail to write access logs (potentially crashing log rotation). Log-intensive operations (database, application logs) accelerate disk consumption rapidly.
 **Root Cause:** Application logs not rotating (logrotate misconfigured), MySQL binary logs growing unbounded, WordPress media uploads consuming space, Magento cache directory bloat, old PHP session files accumulating in `/var/lib/php/sessions`, or Docker log files growing without size limits.
 **Alert Expression:**
@@ -440,7 +440,7 @@ P3 alerts represent infrastructure trends that require attention but not immedia
 (node_filesystem_avail_bytes{mountpoint="/"} / node_filesystem_size_bytes{mountpoint="/"}) < 0.20
 ```
 **Remediation Steps:**
-1. SSH to 10.10.2.21 and run `df -h` to confirm disk usage.
+1. SSH to <remote_ip> and run `df -h` to confirm disk usage.
 2. Identify the largest consumers: `du -sh /* 2>/dev/null | sort -h | tail -20`.
 3. Check log directories: `du -sh /var/log/*`.
 4. Run log rotation manually: `logrotate -f /etc/logrotate.conf`.
@@ -464,7 +464,7 @@ P3 alerts represent infrastructure trends that require attention but not immedia
 (1 - (node_memory_MemAvailable_bytes / node_memory_MemTotal_bytes)) > 0.85
 ```
 **Remediation Steps:**
-1. SSH to 10.10.2.21: `free -h` and `vmstat -s | head -10` to understand current usage.
+1. SSH to <remote_ip>: `free -h` and `vmstat -s | head -10` to understand current usage.
 2. Identify memory consumers: `ps aux --sort=-%mem | head -20`.
 3. Check if Redis is using its expected memory: `redis-cli info memory`.
 4. Check MySQL InnoDB buffer pool: `mysql -e "SHOW VARIABLES LIKE 'innodb_buffer_pool_size';"`.
@@ -487,7 +487,7 @@ P3 alerts represent infrastructure trends that require attention but not immedia
 100 - (avg(rate(node_cpu_seconds_total{mode="idle"}[5m])) * 100) > 85
 ```
 **Remediation Steps:**
-1. SSH to 10.10.2.21: `top -b -n1` or `htop` to identify CPU-consuming processes.
+1. SSH to <remote_ip>: `top -b -n1` or `htop` to identify CPU-consuming processes.
 2. Check if cron jobs are running during peak hours: `cat /etc/cron*` and check systemd timers.
 3. Check for active PHP-FPM workers and what they are processing.
 4. Review nginx access logs in Loki for unusual traffic patterns (bot crawls, scraping).
@@ -606,7 +606,7 @@ sum(count_over_time({platform="mysql"} |~ "(?i)(slow\\s*query|Query_time|Lock_ti
 **Auto-Remediated:** No
 **Triggers When:** Either `prometheus_target_scrape_pool_exceeded_target_limit_total` has a positive rate (scrape pool limits exceeded) OR `scrape_duration_seconds` rate exceeds 10 seconds (scrapes taking longer than 10 seconds), sustained for 5 minutes. This indicates Prometheus is struggling to collect metrics effectively rather than individual targets being down (which is covered by `TargetDown`).
 **Business Impact:** Prometheus metrics are incomplete or delayed. Metric-based alerts (P1_5xxErrorRateCritical, PHPFPMWorkerPoolExhaustion, latency alerts) may fail to fire or fire with outdated data. The monitoring system is operationally degraded. Note: `TargetDown` would fire separately if specific targets are unreachable.
-**Root Cause:** Prometheus scrape pool configured with too-low target limits, an exporter on the remote server responding very slowly (high latency in metric collection), Prometheus CPU or memory constraints causing slow internal processing, an exporter generating an extremely large metrics payload (cardinality explosion from a high-cardinality label like URI without query-string stripping), or a network-level latency spike between 10.10.2.77 and 10.10.2.21.
+**Root Cause:** Prometheus scrape pool configured with too-low target limits, an exporter on the remote server responding very slowly (high latency in metric collection), Prometheus CPU or memory constraints causing slow internal processing, an exporter generating an extremely large metrics payload (cardinality explosion from a high-cardinality label like URI without query-string stripping), or a network-level latency spike between 10.10.2.77 and <remote_ip>.
 **Alert Expression:**
 ```promql
 rate(prometheus_target_scrape_pool_exceeded_target_limit_total[5m]) > 0

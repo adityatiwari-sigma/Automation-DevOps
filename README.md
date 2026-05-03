@@ -77,7 +77,7 @@ The business value is measurable: auto-remediated incidents that previously requ
           │ HTTP push (every 3 min)             │ Execute scripts via sudo
           │                                     │
 ┌─────────┼─────────────────────────────────────┼────────────────────────────────┐
-│         │       REMOTE SERVER  10.10.2.21      │                                │
+│         │       REMOTE SERVER  <remote_ip>      │                                │
 │         │                                     ▼                                │
 │  ┌──────┴─────────────────────────────────────────────────┐                    │
 │  │                  Playwright Cron (every 3 min)         │                    │
@@ -152,7 +152,7 @@ DATA FLOWS:
 | Playwright | latest | Real-browser Core Web Vitals measurement | — |
 | CrowdSec | latest | Security decisions and IP banning on remote server | — |
 
-All monitoring-stack components run in Docker containers on the monitoring laptop (10.10.2.77) via Docker Compose. Node Exporter, Nginx Exporter, and Promtail run natively on the remote server (10.10.2.21).
+All monitoring-stack components run in Docker containers on the monitoring laptop (10.10.2.77) via Docker Compose. Node Exporter, Nginx Exporter, and Promtail run natively on the remote server (<remote_ip>).
 
 ---
 
@@ -177,7 +177,7 @@ python3 --version
 pip3 install -r requirements.txt
 ```
 
-### Remote Server (10.10.2.21)
+### Remote Server (<remote_ip>)
 
 - Ubuntu 20.04+ or Debian 11+ (systemd required)
 - Nginx, PHP-FPM (8.4), MySQL, Redis already installed and running
@@ -232,7 +232,7 @@ All platform configuration lives in `config.json`. After any change, run `python
 | Key Path | Type | Description | Example |
 |---|---|---|---|
 | `network.local_ip` | string | IP of the monitoring laptop running Docker | `"10.10.2.77"` |
-| `network.remote_ip` | string | IP of the remote server hosting client sites | `"10.10.2.21"` |
+| `network.remote_ip` | string | IP of the remote server hosting client sites | `"<remote_ip>"` |
 | `ports.grafana` | integer | Grafana container port | `3000` |
 | `ports.prometheus` | integer | Prometheus container port | `9090` |
 | `ports.loki` | integer | Loki container port | `3100` |
@@ -305,7 +305,7 @@ curl http://localhost:5051/health
 # Open http://10.10.2.77:3000 → Dashboards → verify 5 dashboards are present
 ```
 
-### Deploying Exporters on the Remote Server (10.10.2.21)
+### Deploying Exporters on the Remote Server (<remote_ip>)
 
 ```bash
 # --- Node Exporter ---
@@ -345,7 +345,7 @@ sudo mv nginx-prometheus-exporter /usr/local/bin/
 
 # --- Promtail ---
 # Copy the generated promtail/promtail-config.yml to the remote server
-scp promtail/promtail-config.yml user@10.10.2.21:/etc/promtail/config.yml
+scp promtail/promtail-config.yml user@<remote_ip>:/etc/promtail/config.yml
 
 # Download Promtail binary (match Loki version: 2.9.0)
 wget https://github.com/grafana/loki/releases/download/v2.9.0/promtail-linux-amd64.zip
@@ -411,7 +411,7 @@ The auto-remediation loop involves six components: an alerting rule, Alertmanage
 
 6. SSH EXECUTION
    The script calls remediate/ssh_helper.py which uses Paramiko to SSH into
-   the remote server (10.10.2.21) and execute the command with sudo.
+   the remote server (<remote_ip>) and execute the command with sudo.
    Timeout: 90 seconds per script execution.
 
 7. LOGGING
@@ -536,7 +536,7 @@ curl -X POST http://localhost:3100/loki/api/v1/rules/reload 2>/dev/null || \
 |---|---|---|
 | No alerts arriving by email | SMTP credentials wrong or Gmail App Password expired | Check `email.app_password` in config.json. Run `python3 test_email.py`. Check Alertmanager logs: `docker logs alertmanager` |
 | Webhook returns 401 | Alertmanager bearer token doesn't match webhook secret | Verify `webhook.secret_token` in config.json matches `credentials` in alertmanager.yml. Run `python3 generate_configs.py`. |
-| Prometheus shows target DOWN | Exporter not running on remote server, or firewall blocking port | SSH to remote server and check: `systemctl status node_exporter`. Test from laptop: `curl http://10.10.2.21:9100/metrics \| head` |
+| Prometheus shows target DOWN | Exporter not running on remote server, or firewall blocking port | SSH to remote server and check: `systemctl status node_exporter`. Test from laptop: `curl http://<remote_ip>:9100/metrics \| head` |
 | Loki not receiving logs | Promtail stopped or config error | On remote server: `systemctl status promtail`. Check Promtail logs: `journalctl -u promtail -n 50` |
 | Auto-remediation not running | `auto_remediate: false` in config.json, or webhook service down | Check: `curl http://localhost:5051/health`. Check systemd: `systemctl status auto-remediation-webhook` |
 | Redis flush script aborted (safety guard) | `redis.cache_db` equals `redis.session_db` in config.json | Set `redis.cache_db` to `0` and `redis.session_db` to `1` (different values). Re-run `generate_configs.py` |
@@ -545,7 +545,7 @@ curl -X POST http://localhost:3100/loki/api/v1/rules/reload 2>/dev/null || \
 | Playwright CWV metrics not appearing | Playwright cron stopped on remote server, or Pushgateway unreachable | Check crontab on remote server: `crontab -l`. Check Pushgateway: `curl http://10.10.2.77:9091/metrics` |
 | generate_configs.py fails with "CONFIG ERRORS" | config.json still has `CHANGE_ME` placeholders | Fill in all placeholder values in config.json before running |
 | Loki alert rules not firing | Loki schema or rule directory misconfigured | Check: `docker logs loki \| grep -i error`. Verify `loki/rules/fake/` directory exists with YAML files |
-| SSH remediation times out | Remote server overloaded or SSH service down | Check from laptop: `ssh user@10.10.2.21`. Check ssh_helper.py timeout (90s default) |
+| SSH remediation times out | Remote server overloaded or SSH service down | Check from laptop: `ssh user@<remote_ip>`. Check ssh_helper.py timeout (90s default) |
 | `P1 5xx` alert fires but FPM reload fails | PHP-FPM service name mismatch | The script uses `php8.4-fpm`. If your server runs a different version, update `fpm-reload.sh` |
 
 ---

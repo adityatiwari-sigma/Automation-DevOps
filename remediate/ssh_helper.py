@@ -29,8 +29,15 @@ def run_remote(command: str) -> int:
 
     try:
         connect_kwargs = {"username": user, "timeout": 15}
-        if ssh_pw:
+        # Ignore password if it looks like an SSH key
+        if ssh_pw and not ssh_pw.startswith(("ssh-rsa", "AAAAB3Nza", "ecdsa-sha2-nistp256")):
             connect_kwargs["password"] = ssh_pw
+        else:
+            # Explicitly load key if password is empty or invalid
+            key_path = os.path.expanduser("~/.ssh/id_rsa")
+            if os.path.exists(key_path):
+                connect_kwargs["key_filename"] = key_path
+                
         client.connect(ip, **connect_kwargs)
 
         if sudo_pw:

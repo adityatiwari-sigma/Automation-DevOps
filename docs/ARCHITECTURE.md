@@ -16,7 +16,7 @@ The design prioritizes root-cause isolation over reactive monitoring. Rather tha
 
 - **Config-driven single source of truth:** All environment-specific values (IP addresses, ports, credentials, platform names) live exclusively in `config.json`. A Python generator script (`generate_configs.py`) derives every other configuration file — `.env`, `prometheus.yml`, `alertmanager.yml`, `promtail-config.yml` — from that single file using template substitution. This eliminates the class of misconfiguration bugs that arise from editing derived files directly and ensures that adding a new environment requires editing only one file.
 
-- **SSH-over-agent for remote execution:** Remediation actions execute on the remote application server (10.10.2.21) via paramiko SSH rather than through a resident agent or sidecar process. This approach requires zero software installation on the monitored server beyond standard SSH access, keeps the attack surface minimal (no persistent listening process), and allows the remediation engine to be upgraded or replaced entirely without touching the application server. The trade-off is slightly higher latency per action (SSH handshake overhead), which is acceptable for remediation workloads that run in the seconds-to-minutes range.
+- **SSH-over-agent for remote execution:** Remediation actions execute on the remote application server (<remote_ip>) via paramiko SSH rather than through a resident agent or sidecar process. This approach requires zero software installation on the monitored server beyond standard SSH access, keeps the attack surface minimal (no persistent listening process), and allows the remediation engine to be upgraded or replaced entirely without touching the application server. The trade-off is slightly higher latency per action (SSH handshake overhead), which is acceptable for remediation workloads that run in the seconds-to-minutes range.
 
 - **Local storage with bounded retention:** All telemetry data is stored on the monitoring laptop's local filesystem within named Docker volumes. Prometheus retains 15 days of metrics; Loki retains 90 days of logs. This choice eliminates cloud egress costs and external service dependencies, keeps the system operational during internet outages, and ensures that sensitive log data (containing stack traces, database queries, and user activity patterns) never leaves the LAN. The acknowledged trade-off is the monitoring laptop becoming a single point of failure for the observability layer.
 
@@ -28,7 +28,7 @@ The design prioritizes root-cause isolation over reactive monitoring. Rather tha
 
 ```
 ╔══════════════════════════════════════════════════════════════════════════════════╗
-║  REMOTE APPLICATION SERVER — 10.10.2.21                                        ║
+║  REMOTE APPLICATION SERVER — <remote_ip>                                        ║
 ║                                                                                  ║
 ║  ┌─────────────┐  ┌─────────────┐  ┌──────────┐  ┌───────────────────────────┐ ║
 ║  │    Nginx    │  │  PHP-FPM    │  │  MySQL   │  │  Redis                    │ ║
@@ -141,15 +141,15 @@ Protocol Legend
 
 | Name | Machine | Type | Port | Role | Version | Container/Service |
 |---|---|---|---|---|---|---|
-| Nginx | 10.10.2.21 | System | 80/443 | Web reverse proxy / static file server | - | systemd |
-| PHP-FPM | 10.10.2.21 | System | unix socket | PHP process manager (www pool) | php8.4-fpm | systemd |
-| MySQL | 10.10.2.21 | System | 3306 | Relational database | - | systemd |
-| Redis | 10.10.2.21 | System | 6379 | Cache (DB 0) + session store (DB 1) | - | systemd |
-| Node Exporter | 10.10.2.21 | Exporter | 9100 | Host CPU/memory/disk/network metrics | - | systemd |
-| Nginx Exporter | 10.10.2.21 | Exporter | 9113 | nginx_http_requests_total metrics | - | systemd |
-| Promtail | 10.10.2.21 | Log agent | 9080 | Log collection + pipeline + Loki push | - | systemd |
-| Playwright cron | 10.10.2.21 | Cron | - | Core Web Vitals collection every 3 min → /var/log/cwv/vitals.log | - | cron |
-| CrowdSec | 10.10.2.21 | Security | - | Intrusion detection/prevention | - | systemd |
+| Nginx | <remote_ip> | System | 80/443 | Web reverse proxy / static file server | - | systemd |
+| PHP-FPM | <remote_ip> | System | unix socket | PHP process manager (www pool) | php8.4-fpm | systemd |
+| MySQL | <remote_ip> | System | 3306 | Relational database | - | systemd |
+| Redis | <remote_ip> | System | 6379 | Cache (DB 0) + session store (DB 1) | - | systemd |
+| Node Exporter | <remote_ip> | Exporter | 9100 | Host CPU/memory/disk/network metrics | - | systemd |
+| Nginx Exporter | <remote_ip> | Exporter | 9113 | nginx_http_requests_total metrics | - | systemd |
+| Promtail | <remote_ip> | Log agent | 9080 | Log collection + pipeline + Loki push | - | systemd |
+| Playwright cron | <remote_ip> | Cron | - | Core Web Vitals collection every 3 min → /var/log/cwv/vitals.log | - | cron |
+| CrowdSec | <remote_ip> | Security | - | Intrusion detection/prevention | - | systemd |
 | Loki | 10.10.2.77 | Log store | 3100 | Log aggregation, retention, ruler eval | 2.9.0 | Docker container |
 | Prometheus | 10.10.2.77 | Metrics store | 9090 | Metrics scrape, storage, rule evaluation | v2.51.0 | Docker container |
 | Alertmanager | 10.10.2.77 | Alert router | 9093 | Alert routing, dedup, notifications | v0.27.0 | Docker container |
@@ -166,7 +166,7 @@ Protocol Legend
 ### a. Metrics Collection Flow
 
 ```
-Remote Server (10.10.2.21)                  Monitoring Laptop (10.10.2.77)
+Remote Server (<remote_ip>)                  Monitoring Laptop (10.10.2.77)
 ────────────────────────                    ──────────────────────────────
 
 Node Exporter :9100 ─────────── HTTP GET /metrics ──────────────────► Prometheus
@@ -203,7 +203,7 @@ cAdvisor :8080 ───────────────── HTTP GET /met
 ### b. Log Collection Flow
 
 ```
-Remote Server (10.10.2.21)
+Remote Server (<remote_ip>)
 ──────────────────────────
 
 /var/log/nginx/*access.log (JSON structured)
@@ -317,14 +317,14 @@ _process_alert thread:
   ├── Call: python3 remediate/ssh_helper.py "<systemctl command>"
   │
   ssh_helper.py (paramiko)
-  ├── Load config.json → ip=10.10.2.21, user, password/sudo_password
-  ├── paramiko.SSHClient().connect(10.10.2.21, timeout=15s)
+  ├── Load config.json → ip=<remote_ip>, user, password/sudo_password
+  ├── paramiko.SSHClient().connect(<remote_ip>, timeout=15s)
   ├── exec_command("echo <sudo_pw> | sudo -S bash -c '<command>'")
   ├── collect stdout/stderr, recv_exit_status()
   └── return exit code to bash script
         │
         ▼
-  Remote Server 10.10.2.21
+  Remote Server <remote_ip>
   └── systemctl reload php8.4-fpm
       sysctl fs.file-max=100000 && systemctl reload nginx
       redis-cli -n <cache_db> FLUSHDB  (3 guards: auto_remediate,
@@ -534,7 +534,7 @@ Internet
     │
     │ HTTPS :443
     ▼
-10.10.2.21 (Remote Application Server)
+<remote_ip> (Remote Application Server)
 ┌──────────────────────────────────────────────┐
 │  Nginx :80/:443   ← public-facing            │
 │  PHP-FPM          ← unix socket only         │

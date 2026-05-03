@@ -2,7 +2,7 @@
 
 > This document is for on-call engineers. Open it when an alert fires. Every section ends with an actionable command or decision. For architecture and setup detail, see `README.md`.
 
-**Platform:** dev.regenics.com | **Remote Server:** 10.10.2.21 | **Monitoring Laptop:** 10.10.2.77
+**Platform:** dev.regenics.com | **Remote Server:** <remote_ip> | **Monitoring Laptop:** 10.10.2.77
 **Webhook Service:** http://10.10.2.77:5051 | **Grafana:** http://10.10.2.77:3000 | **Prometheus:** http://10.10.2.77:9090
 
 ---
@@ -80,11 +80,11 @@ http://10.10.2.77:5051
 curl http://10.10.2.77:5051/health
 ```
 
-### Remote Server (10.10.2.21)
+### Remote Server (<remote_ip>)
 
 ```bash
 # SSH access (use credentials from config.json → ssh section)
-ssh <ssh_user>@10.10.2.21
+ssh <ssh_user>@<remote_ip>
 
 # Verify services are running
 sudo systemctl status nginx
@@ -143,7 +143,7 @@ curl -sG 'http://localhost:9090/api/v1/query' \
 # http://10.10.2.77:3000/d/error-groups-v2
 
 # 4. SSH to remote server and check Nginx error log
-ssh user@10.10.2.21
+ssh user@<remote_ip>
 sudo tail -100 /var/log/nginx/error.log | grep -E "crit|error|emerg"
 
 # 5. Check PHP-FPM status
@@ -176,7 +176,7 @@ curl -sG 'http://localhost:9090/api/v1/query' \
   | python3 -m json.tool
 
 # 3. Check nginx access log for affected URLs
-ssh user@10.10.2.21
+ssh user@<remote_ip>
 sudo grep -E '" (500|502|503|504) ' /var/log/nginx/access.log | tail -30
 ```
 
@@ -202,7 +202,7 @@ curl -sG 'http://localhost:9090/api/v1/query' \
   | python3 -c "import sys,json; r=json.load(sys.stdin)['data']['result']; print(r[0]['value'][1] if r else 'no data')"
 
 # 3. Check FPM status on remote server
-ssh user@10.10.2.21
+ssh user@<remote_ip>
 sudo systemctl status php8.4-fpm
 # Check for slow scripts consuming workers:
 sudo grep "request duration" /var/log/php8.4-fpm.log | sort -t'=' -k2 -rn | head -10
@@ -215,7 +215,7 @@ sudo cat /etc/php/8.4/fpm/pool.d/www.conf | grep -E "pm\.(max_children|start_ser
 
 ```bash
 # Manual FPM restart (harder than reload — kills in-flight requests)
-ssh user@10.10.2.21
+ssh user@<remote_ip>
 sudo systemctl restart php8.4-fpm
 
 # Identify runaway PHP processes consuming workers
@@ -251,14 +251,14 @@ sudo ps aux | grep php | awk '{print $2, $11, $12}' | head -20
 grep "fpm-reload" /path/to/Automation-DevOps/auto-remediation.log | tail -5
 
 # 3. Verify FPM is running
-ssh user@10.10.2.21
+ssh user@<remote_ip>
 sudo systemctl status php8.4-fpm
 ```
 
 **If auto-remediation fails:**
 
 ```bash
-ssh user@10.10.2.21
+ssh user@<remote_ip>
 sudo systemctl reload php8.4-fpm
 # If reload fails:
 sudo systemctl restart php8.4-fpm
@@ -280,7 +280,7 @@ sudo journalctl -u php8.4-fpm -n 50
 grep "nginx-file-limit" /path/to/Automation-DevOps/auto-remediation.log | tail -5
 
 # 2. Verify sysctl applied on remote server
-ssh user@10.10.2.21
+ssh user@<remote_ip>
 sysctl fs.file-max
 # Expected: fs.file-max = 100000
 
@@ -295,7 +295,7 @@ sudo systemctl status nginx
 **If auto-remediation fails:**
 
 ```bash
-ssh user@10.10.2.21
+ssh user@<remote_ip>
 sudo sysctl -w fs.file-max=100000
 sudo sysctl -w net.core.somaxconn=65535
 # Make permanent:
@@ -320,13 +320,13 @@ sudo systemctl reload nginx
 grep "redis-flush-cache" /path/to/Automation-DevOps/auto-remediation.log | tail -5
 
 # 2. Check Redis memory status
-redis-cli -h 10.10.2.21 info memory | grep -E "used_memory_human|maxmemory_human|used_memory_peak_human"
+redis-cli -h <remote_ip> info memory | grep -E "used_memory_human|maxmemory_human|used_memory_peak_human"
 
 # 3. Check cache DB key count
-redis-cli -h 10.10.2.21 -n 0 DBSIZE
+redis-cli -h <remote_ip> -n 0 DBSIZE
 
 # 4. Check session DB is untouched
-redis-cli -h 10.10.2.21 -n 1 DBSIZE
+redis-cli -h <remote_ip> -n 1 DBSIZE
 ```
 
 **If auto-remediation fails (safety guard triggered):**
@@ -336,7 +336,7 @@ redis-cli -h 10.10.2.21 -n 1 DBSIZE
 python3 -c "import json; c=json.load(open('config.json')); print('SAME' if c['redis']['cache_db']==c['redis']['session_db'] else 'DIFFERENT')"
 
 # Manual safe flush — only after confirming DB indexes
-redis-cli -h 10.10.2.21 -n 0 FLUSHDB  # flushes cache DB only
+redis-cli -h <remote_ip> -n 0 FLUSHDB  # flushes cache DB only
 # Do NOT run FLUSHALL — this destroys session data
 ```
 
@@ -362,7 +362,7 @@ redis-cli -h 10.10.2.21 -n 0 FLUSHDB  # flushes cache DB only
 # {platform=~"php-fpm|laravel"} |~ "(?i)(fatal|emergency|critical)" |~ "(?i)(checkout|payment)"
 
 # 3. Check PHP error log on remote server
-ssh user@10.10.2.21
+ssh user@<remote_ip>
 sudo tail -200 /var/log/php8.4-fpm.log | grep -Ei "fatal|critical" | tail -30
 sudo grep -r "FATAL\|CRITICAL" /var/www/*/storage/logs/ 2>/dev/null | tail -30
 
@@ -392,7 +392,7 @@ curl -sG 'http://localhost:9090/api/v1/query' \
   | python3 -c "import sys,json; r=json.load(sys.stdin)['data']['result']; print(r[0]['value'][1] if r else 'no data')"
 
 # 2. Identify CPU-heavy processes on remote server
-ssh user@10.10.2.21
+ssh user@<remote_ip>
 top -bn1 | head -20
 ps aux --sort=-%cpu | head -15
 
@@ -436,7 +436,7 @@ curl -sG 'http://localhost:9090/api/v1/query' \
   | python3 -m json.tool
 
 # 3. Check PHP slow log
-ssh user@10.10.2.21
+ssh user@<remote_ip>
 sudo grep "request duration" /var/log/php8.4-fpm.log | sort -t'=' -k2 -rn | head -20
 
 # 4. Check MySQL slow query log
@@ -457,7 +457,7 @@ sudo tail -100 /var/log/mysql/mysql-slow.log 2>/dev/null || \
 # http://10.10.2.77:9093
 
 # 2. Check Nginx access log for that URL
-ssh user@10.10.2.21
+ssh user@<remote_ip>
 sudo grep "POST /checkout\|GET /product" /var/log/nginx/access.log | \
   awk '{print $NF, $7}' | sort -rn | head -20
 
@@ -483,7 +483,7 @@ curl -sG 'http://localhost:9090/api/v1/query' \
   | python3 -m json.tool
 
 # 2. Check PHP-FPM socket/TCP connection
-ssh user@10.10.2.21
+ssh user@<remote_ip>
 sudo systemctl status php8.4-fpm
 # Check PHP-FPM socket exists
 ls -la /run/php/php8.4-fpm.sock 2>/dev/null || echo "Socket not found"
@@ -515,7 +515,7 @@ tail -20 /path/to/Automation-DevOps/auto-remediation.log
 # {platform=~"php-fpm|laravel"} |~ "(?i)(php fatal|parse error|memory size exhausted)"
 
 # 3. Check PHP error log on remote server
-ssh user@10.10.2.21
+ssh user@<remote_ip>
 sudo tail -200 /var/log/php8.4-fpm.log | grep -Ei "fatal error|parse error|memory size" | tail -20
 
 # 4. Check Laravel/WordPress application logs
@@ -538,7 +538,7 @@ sudo tail -100 /var/www/*/storage/logs/laravel.log 2>/dev/null | grep -Ei "fatal
 grep "generic_triage\|mysql" /path/to/Automation-DevOps/auto-remediation.log | tail -10
 
 # 2. Check MySQL status on remote server
-ssh user@10.10.2.21
+ssh user@<remote_ip>
 sudo mysqladmin status
 sudo mysqladmin processlist | head -20
 
@@ -562,7 +562,7 @@ sudo tail -100 /var/log/mysql/mysql-slow.log 2>/dev/null | head -50
 
 ```bash
 # 1. Check recent deployments
-ssh user@10.10.2.21
+ssh user@<remote_ip>
 sudo journalctl --since "2 hours ago" | grep -i "deploy\|git\|composer\|npm"
 ls -lt /var/www/*/releases/ 2>/dev/null | head -10
 
@@ -595,7 +595,7 @@ crontab -l | grep playwright
 # http://10.10.2.77:9090/targets  — look for red targets
 
 # 2a. If remote server exporter is down (node_exporter :9100 or nginx :9113 or promtail :9080)
-ssh user@10.10.2.21
+ssh user@<remote_ip>
 sudo systemctl status node_exporter
 sudo systemctl status nginx-prometheus-exporter 2>/dev/null || sudo systemctl status nginx-exporter
 sudo systemctl status promtail
@@ -605,9 +605,9 @@ sudo systemctl start node_exporter
 sudo systemctl start promtail
 
 # 2b. Test port reachability from monitoring laptop
-nc -zv 10.10.2.21 9100  # node exporter
-nc -zv 10.10.2.21 9113  # nginx exporter
-nc -zv 10.10.2.21 9080  # promtail
+nc -zv <remote_ip> 9100  # node exporter
+nc -zv <remote_ip> 9113  # nginx exporter
+nc -zv <remote_ip> 9080  # promtail
 
 # 3. If Docker container exporter is down (cadvisor :8080 or local node-exporter :9100)
 cd /path/to/Automation-DevOps && docker compose ps
@@ -665,7 +665,7 @@ docker image prune -f
 docker volume prune -f  # CAUTION: only prune volumes not in use
 
 # For remote server disk:
-ssh user@10.10.2.21
+ssh user@<remote_ip>
 df -h /
 sudo du -sh /var/log/* | sort -rh | head -20
 sudo journalctl --disk-usage
@@ -682,7 +682,7 @@ sudo find /var/log -name "*.gz" -mtime +30 -delete
 
 ```bash
 # Check memory usage breakdown
-ssh user@10.10.2.21
+ssh user@<remote_ip>
 free -h
 ps aux --sort=-%mem | head -15
 sudo cat /proc/meminfo | grep -E "MemTotal|MemFree|MemAvailable|Cached|SwapUsed"
@@ -701,7 +701,7 @@ sudo dmesg | grep -i "oom\|out of memory" | tail -20
 **What it means:** Average CPU above 85% for 30 minutes. Investigate for runaway processes or under-provisioning.
 
 ```bash
-ssh user@10.10.2.21
+ssh user@<remote_ip>
 # Top CPU consumers
 top -bn1 | head -20
 ps aux --sort=-%cpu | head -15
@@ -726,7 +726,7 @@ sudo ps aux | grep -E "artisan|cron|wp-cron" | grep -v grep
 # {platform=~"php-fpm|laravel|nginx"} |~ "(?i)(warning|deprecated|notice)"
 
 # On remote server, review recent PHP warnings
-ssh user@10.10.2.21
+ssh user@<remote_ip>
 sudo tail -500 /var/log/php8.4-fpm.log | grep -i "warning\|deprecated" | sort | uniq -c | sort -rn | head -20
 ```
 
@@ -799,7 +799,7 @@ curl http://localhost:5051/health
 ### Restart PHP-FPM
 
 ```bash
-ssh user@10.10.2.21
+ssh user@<remote_ip>
 
 # Graceful reload (preferred — drains in-flight requests)
 sudo systemctl reload php8.4-fpm
@@ -816,7 +816,7 @@ curl http://localhost/fpm-status 2>/dev/null || echo "Status page not configured
 ### Reload Nginx
 
 ```bash
-ssh user@10.10.2.21
+ssh user@<remote_ip>
 
 # Test config first
 sudo nginx -t
@@ -840,7 +840,7 @@ curl -I http://localhost 2>/dev/null | head -5
 python3 -c "import json; c=json.load(open('/path/to/Automation-DevOps/config.json')); print(f'Cache DB: {c[\"redis\"][\"cache_db\"]}, Session DB: {c[\"redis\"][\"session_db\"]}')"
 
 # Connect to Redis on remote server
-redis-cli -h 10.10.2.21 -p 6379
+redis-cli -h <remote_ip> -p 6379
 
 # Check DB sizes first
 SELECT 0
@@ -868,7 +868,7 @@ docker builder prune -f        # clear build cache
 # Then: docker compose restart prometheus
 
 # On remote server (free application disk):
-ssh user@10.10.2.21
+ssh user@<remote_ip>
 sudo journalctl --vacuum-time=7d          # clear systemd journal > 7 days
 sudo find /var/log -name "*.gz" -mtime +14 -delete  # delete old compressed logs
 sudo find /tmp -mtime +1 -delete          # clear old temp files
@@ -1130,13 +1130,13 @@ grep "webhook" /path/to/Automation-DevOps/alertmanager/alertmanager.yml
 
 ```bash
 # Check network connectivity from monitoring laptop to remote server
-ping 10.10.2.21
-nc -zv 10.10.2.21 9100  # Node Exporter
-nc -zv 10.10.2.21 9113  # Nginx Exporter
-nc -zv 10.10.2.21 9080  # Promtail
+ping <remote_ip>
+nc -zv <remote_ip> 9100  # Node Exporter
+nc -zv <remote_ip> 9113  # Nginx Exporter
+nc -zv <remote_ip> 9080  # Promtail
 
 # Check firewall on remote server
-ssh user@10.10.2.21
+ssh user@<remote_ip>
 sudo ufw status | grep -E "9100|9113|9080"
 # If blocked: sudo ufw allow from 10.10.2.77 to any port 9100
 ```
@@ -1174,13 +1174,13 @@ sudo lsof -i :5051
 
 ```bash
 # Test Redis connectivity
-redis-cli -h 10.10.2.21 -p 6379 ping
+redis-cli -h <remote_ip> -p 6379 ping
 
 # If Redis requires a password, verify in config.json
 python3 -c "import json; print(json.load(open('config.json'))['redis']['password'])"
 
 # Check Redis is running on remote server
-ssh user@10.10.2.21
+ssh user@<remote_ip>
 sudo systemctl status redis-server
 ```
 
@@ -1200,7 +1200,7 @@ docker compose exec alertmanager amtool check-config /etc/alertmanager/alertmana
 
 ```bash
 # Check crontab on remote server
-ssh user@10.10.2.21
+ssh user@<remote_ip>
 crontab -l  # look for */3 * * * * playwright-probe entry
 
 # Check Pushgateway for last push time
@@ -1225,7 +1225,7 @@ Complete this after every P1 incident, before closing.
 # http://10.10.2.77:9093 — no active P1 alerts
 
 # 2. Confirm service is healthy on remote server
-ssh user@10.10.2.21
+ssh user@<remote_ip>
 sudo systemctl status nginx php8.4-fpm mysql redis-server
 
 # 3. Confirm 5xx error rate is back to baseline
