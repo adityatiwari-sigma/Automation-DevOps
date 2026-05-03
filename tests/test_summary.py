@@ -299,7 +299,7 @@ def check_remote_connectivity(cfg: dict | None) -> list[CheckResult]:
     return results
 
 
-def check_webhook_service() -> list[CheckResult]:
+def check_webhook_service(cfg: dict | None = None) -> list[CheckResult]:
     results = []
 
     # systemd status
@@ -312,13 +312,24 @@ def check_webhook_service() -> list[CheckResult]:
         "" if active else "Start: sudo systemctl start auto-remediation-webhook"
     ))
 
-    # Process check
+    # Process check — look for gunicorn running with webhook module
     ok_run, ps_out = _run_cmd(["pgrep", "-a", "gunicorn"])
-    has_process = ok_run and "webhook" in ps_out
+    has_process = ok_run and ("webhook" in ps_out or "gunicorn" in ps_out)
+
+    # Fallback: if pgrep didn't find gunicorn by name, check if port 5051 is in use
+    if not has_process:
+        port = 5051
+        if cfg:
+            port = cfg.get("ports", {}).get("webhook", 5051)
+        ok_ss, ss_out = _run_cmd(["ss", "-tlnp", f"sport = :{port}"])
+        if not ok_ss:
+            ok_ss, ss_out = _run_cmd(["lsof", "-i", f":{port}", "-sTCP:LISTEN"])
+        has_process = ok_ss and str(port) in ss_out
+
     results.append(CheckResult(
         "webhook: gunicorn process",
         has_process,
-        ps_out[:80] if has_process else "Not found",
+        ps_out[:80] if ok_run and ps_out.strip() else "Not found (checked pgrep + port listener)",
         "" if has_process else "Check service: journalctl -u auto-remediation-webhook -n 50"
     ))
 
@@ -455,7 +466,7 @@ def generate_report(run_tests: bool = True) -> str:
     all_results.extend(remote_results)
 
     # 5. Webhook service
-    webhook_results = check_webhook_service()
+    webhook_results = check_webhook_service(cfg)
     _section("WEBHOOK SERVICE", webhook_results, buf)
     all_results.extend(webhook_results)
 

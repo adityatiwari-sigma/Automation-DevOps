@@ -2,8 +2,8 @@
   "_readme": "Copy this file to config.json and fill in your values. Run: python3 generate_configs.py — then docker-compose up -d",
 
   "network": {
-    "local_ip":  "10.10.2.77",
-    "remote_ip": "10.10.2.21"
+    "local_ip":  "CHANGE_ME_LOCAL_IP",
+    "remote_ip": "CHANGE_ME_REMOTE_IP"
   },
 
   "ports": {

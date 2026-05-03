@@ -1,4 +1,4 @@
-# Server-Side Configuration — Remote Server (10.10.2.21)
+# Server-Side Configuration — Remote Server (`remote_ip` from config.json)
 
 These are optional server-side config changes on the remote web server to enable
 richer correlation data. **No new exporters are required** — all signals come from
@@ -64,8 +64,8 @@ grep "pm.max_children" /etc/php/*/fpm/pool.d/www.conf
 
 | Signal | Source | Prometheus Job |
 |--------|--------|---------------|
-| CPU / Memory | Node Exporter on 10.10.2.21:9100 | `node-exporter-remote` |
-| Nginx Connections | Nginx Exporter on 10.10.2.21:9113 | `nginx-exporter-remote` |
+| CPU / Memory | Node Exporter on `<remote_ip>`:9100 | `node-exporter-remote` |
+| Nginx Connections | Nginx Exporter on `<remote_ip>`:9113 | `nginx-exporter-remote` |
 | PHP-FPM Errors | Promtail → Loki (`platform=php-fpm`) | Loki query |
 | MySQL Errors | Promtail → Loki (`platform=mysql`) | Loki query |
 | LCP / TTFB | Playwright → Pushgateway | `pushgateway` |
