@@ -477,10 +477,17 @@ def generate_report(run_tests: bool = True) -> str:
     if not alerts:
         buf.append(f"  {ok('No active firing alerts')}")
     else:
+        # Group alerts by name and severity to prevent flooding the console
+        grouped_alerts = {}
         for a in alerts:
             name = a.get("labels", {}).get("alertname", "unknown")
             sev  = a.get("labels", {}).get("severity", "?")
-            buf.append(f"  {fail(name):<55}  {dim(f'severity={sev}')}")
+            key = (name, sev)
+            grouped_alerts[key] = grouped_alerts.get(key, 0) + 1
+            
+        for (name, sev), count in sorted(grouped_alerts.items(), key=lambda x: (x[0][1], x[0][0])):
+            display_name = f"{name} ({count} occurrences)" if count > 1 else name
+            buf.append(f"  {fail(display_name):<55}  {dim(f'severity={sev}')}")
 
     # 7. Recent remediation log
     buf.append("")
