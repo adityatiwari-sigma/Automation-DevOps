@@ -17,7 +17,7 @@
 
 ## Executive Summary
 
-This platform is an AI-assisted operations (AIOps) system built for Sigma Informatics to monitor and automatically recover client web infrastructure. It continuously collects metrics and logs from production servers, evaluates them against a library of alerting rules, and — for known failure patterns — executes targeted remediation scripts over SSH without requiring human intervention.
+This platform is an AI-assisted operations (AIOps) system built to monitor and automatically recover client web infrastructure. It continuously collects metrics and logs from production servers, evaluates them against a library of alerting rules, and — for known failure patterns — executes targeted remediation scripts over SSH without requiring human intervention.
 
 The system solves a class of problems that manual monitoring cannot: the window between a failure starting and a human noticing is often 15–30 minutes, during which users experience errors and revenue is lost. This platform detects anomalies within seconds of their onset, pages the on-call engineer immediately, and for the most common failure types (PHP-FPM worker exhaustion, Nginx file descriptor limits, Redis memory pressure, HTTP 5xx spikes) executes a fix automatically while the engineer is still reading the alert email.
 
