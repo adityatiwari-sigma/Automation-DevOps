@@ -1,0 +1,66 @@
+{
+  "_readme": "Copy this file to config.json and fill in your values. Run: python3 generate_configs.py — then docker-compose up -d",
+
+  "network": {
+    "local_ip":  "CHANGE_ME_LOCAL_IP",
+    "remote_ip": "CHANGE_ME_REMOTE_IP"
+  },
+
+  "ports": {
+    "grafana":       3000,
+    "prometheus":    9090,
+    "loki":          3100,
+    "alertmanager":  9093,
+    "pushgateway":   9091,
+    "webhook":       5051,
+    "node_exporter": 9100,
+    "nginx_exporter": 9113,
+    "promtail":      9080,
+    "cadvisor":      8080
+  },
+
+  "grafana": {
+    "admin_user":     "admin",
+    "admin_password": "CHANGE_ME_STRONG_PASSWORD"
+  },
+
+  "email": {
+    "smtp_host":    "smtp.gmail.com:587",
+    "from_address": "your-alerts@gmail.com",
+    "app_password": "CHANGE_ME_GMAIL_APP_PASSWORD",
+    "recipients": {
+      "p1":          "oncall@example.com",
+      "p2":          "team@example.com",
+      "p3":          "team@example.com",
+      "correlation": "oncall@example.com"
+    }
+  },
+
+  "ssh": {
+    "user":          "CHANGE_ME_SSH_USER",
+    "password":      "CHANGE_ME_SSH_PASSWORD",
+    "sudo_password": "CHANGE_ME_SUDO_PASSWORD"
+  },
+
+  "redis": {
+    "port":       6379,
+    "cache_db":   0,
+    "session_db": 1,
+    "password":   ""
+  },
+
+  "slack": {
+    "webhook_url": ""
+  },
+
+  "webhook": {
+    "secret_token":   "GENERATE_WITH_openssl_rand_hex_32",
+    "auto_remediate": true
+  },
+
+  "platform": {
+    "name":          "dev.regenics.com",
+    "instance_name": "dev-regenics",
+    "environment":   "production"
+  }
+}

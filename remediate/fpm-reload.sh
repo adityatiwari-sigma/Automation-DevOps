@@ -1,33 +1,31 @@
-#!/bin/bash
+#!/usr/bin/env bash
+set -euo pipefail
 
 # ============================================================
-# PHP-FPM REMEDIATION (INSTANT)
+# PHP-FPM REMEDIATION — reloads PHP-FPM on the remote server
 # ============================================================
 
-DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
+DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 LOG_FILE="$(dirname "$DIR")/auto-remediation.log"
-ENV_FILE="$(dirname "$DIR")/.env"
+CONFIG_FILE="$(dirname "$DIR")/config.json"
 TIMESTAMP=$(date '+%Y-%m-%d %H:%M:%S')
 
-if [ -f "$ENV_FILE" ]; then
-    source "$ENV_FILE"
+# ── Safety guard: respect AUTO_REMEDIATE flag ──────────────
+AUTO_REMEDIATE=$(python3 -c "import json; print(json.load(open('$CONFIG_FILE'))['webhook']['auto_remediate'])" 2>/dev/null || echo "True")
+if [ "$AUTO_REMEDIATE" = "False" ]; then
+    echo "[$TIMESTAMP] TRIGGER=\"fpm-reload\" STATUS=\"SKIPPED\" REASON=\"auto_remediate=false\"" >> "$LOG_FILE"
+    exit 0
 fi
 
-REMOTE_IP="${REMOTE_IP:-10.10.2.21}"
-SSH_USER="${SSH_USER:-root}"
-SSH_PASSWORD="${SSH_PASSWORD:-}"
-SUDO_PASSWORD="${SUDO_PASSWORD:-}"
+REMOTE_IP=$(python3 -c "import json; print(json.load(open('$CONFIG_FILE'))['network']['remote_ip'])")
 
-echo "[$TIMESTAMP] TRIGGER=\"fpm-reload\" ACTION=\"ssh-execute\" STATUS=\"STARTING\"" >> "$LOG_FILE"
+echo "[$TIMESTAMP] TRIGGER=\"fpm-reload\" ACTION=\"ssh-execute\" STATUS=\"STARTING\" TARGET=\"$REMOTE_IP\"" >> "$LOG_FILE"
 
-# Execute reload via Python SSH Helper
-python3 "$DIR/ssh_helper.py" "$REMOTE_IP" "$SSH_USER" "$SSH_PASSWORD" "$SUDO_PASSWORD" "systemctl reload php8.4-fpm"
-
-if [ $? -eq 0 ]; then
-    echo "[$TIMESTAMP] TRIGGER=\"fpm-reload\" ACTION=\"service-reload\" STATUS=\"SUCCESS\"" >> "$LOG_FILE"
-    echo "PHP-FPM Reloaded successfully on $REMOTE_IP."
+if python3 "$DIR/ssh_helper.py" "systemctl reload php8.4-fpm"; then
+    echo "[$TIMESTAMP] TRIGGER=\"fpm-reload\" ACTION=\"service-reload\" STATUS=\"SUCCESS\" TARGET=\"$REMOTE_IP\"" >> "$LOG_FILE"
+    echo "PHP-FPM reloaded successfully on $REMOTE_IP."
 else
-    echo "[$TIMESTAMP] TRIGGER=\"fpm-reload\" ACTION=\"service-reload\" STATUS=\"FAILED\"" >> "$LOG_FILE"
-    echo "Failed to reload PHP-FPM on $REMOTE_IP."
+    echo "[$TIMESTAMP] TRIGGER=\"fpm-reload\" ACTION=\"service-reload\" STATUS=\"FAILED\" TARGET=\"$REMOTE_IP\"" >> "$LOG_FILE"
+    echo "ERROR: PHP-FPM reload failed on $REMOTE_IP." >&2
     exit 1
 fi

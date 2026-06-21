@@ -1,16 +1,23 @@
-# Credentials & Environment
+# ── Credentials & secrets (NEVER commit) ──
+config.json
 .env
 secret.json
 *.key
 *.pem
 
-# Logs
+# ── Generated config files (produced by generate_configs.py) ──
+prometheus/prometheus.yml
+alertmanager/alertmanager.yml
+promtail/promtail-config.yml
+
+# ── Logs ──
 *.log
 webhook.stdout.log
 webhook.stderr.log
 auto-remediation.log
+direct-debug.log
 
-# Python
+# ── Python ──
 __pycache__/
 *.py[cod]
 *$py.class
@@ -18,9 +25,11 @@ venv/
 .venv/
 .env
 
-# System & IDE
+# ── Backup files ──
+*.bak
+
+# ── System & IDE ──
 .DS_Store
 .vscode/
 .idea/
 *.swp
-*.bak

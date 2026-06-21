@@ -1,17 +1,15 @@
 # ============================================================
-# ALERTMANAGER CONFIGURATION
-# Severity-tiered routing with deduplication
+# ALERTMANAGER CONFIGURATION  (generated from this template by generate_configs.py)
+# Edit alertmanager/alertmanager.yml.template — NOT the generated alertmanager.yml
 # ============================================================
 
 global:
   resolve_timeout: 5m
 
-  # ── SMTP settings for email notifications ──
-  # UPDATE: Replace with your actual SMTP credentials
-  smtp_smarthost: "smtp.gmail.com:587"
-  smtp_from: "aditya.tiwari@sigmainfo.net"
-  smtp_auth_username: "aditya.tiwari@sigmainfo.net"
-  smtp_auth_password: "dycppwcjukmgkcfj"
+  smtp_smarthost: "__SMTP_HOST__"
+  smtp_from: "__SMTP_FROM__"
+  smtp_auth_username: "__SMTP_USER__"
+  smtp_auth_password: "__SMTP_PASSWORD__"
   smtp_require_tls: true
 
 # ────────────────────────────────────────────────────────────
@@ -24,42 +22,53 @@ templates:
 # ROUTE TREE  —  severity-based routing with deduplication
 #
 # Deduplication via repeat_interval:
-#   P1 = 15 minutes (same alert won't re-fire within 15 min)
+#   P1 = 15 minutes
 #   P2 = 1 hour
-#   P3 = 24 hours
+#   P3 = 24 hours  (daily digest)
 # ────────────────────────────────────────────────────────────
 route:
   receiver: "default-email"
-  group_by: ["alertname", "severity", "service"]
-  group_wait: 30s
+  group_by: ["alertname", "severity", "platform"]
+  group_wait: 30s           # allow correlated alerts to arrive together
   group_interval: 5m
-  repeat_interval: 24h          # default fallback (P3-level)
+  repeat_interval: 4h       # default fallback (P3-level)
 
   routes:
-    # ── AUTO-REMEDIATION: dispatch to webhook ──
+    # ── AUTO-REMEDIATION: dispatch to webhook first, then continue to severity route ──
     - match_re:
         remediation: ".+"
       receiver: "auto-remediation-webhook"
       group_wait: 10s
-      repeat_interval: 5m
+      group_interval: 1m
+      repeat_interval: 10m
       continue: true
+
+    # ── LCP CORRELATION: root-cause diagnosis alerts ──
+    - match_re:
+        root_cause: ".+"
+      receiver: "lcp-correlation"
+      group_by: ["alertname", "root_cause", "platform"]
+      group_wait: 30s
+      group_interval: 5m
+      repeat_interval: 15m
+      continue: false
 
     # ── P1: CRITICAL  —  immediate escalation ──
     - match:
         severity: p1
       receiver: "p1-critical"
-      group_wait: 15s            # fire fast
+      group_wait: 15s
       group_interval: 1m
-      repeat_interval: 15m       # cooldown: 15 minutes
+      repeat_interval: 15m
       continue: false
 
     # ── P2: HIGH  —  within 1 hour ──
     - match:
         severity: p2
       receiver: "p2-high"
-      group_wait: 30s
+      group_wait: 1m
       group_interval: 5m
-      repeat_interval: 1h        # cooldown: 1 hour
+      repeat_interval: 1h
       continue: false
 
     # ── P3: LOW  —  daily digest ──
@@ -67,8 +76,8 @@ route:
         severity: p3
       receiver: "p3-daily"
       group_wait: 5m
-      group_interval: 30m
-      repeat_interval: 24h       # cooldown: 24 hours
+      group_interval: 10m
+      repeat_interval: 24h
       continue: false
 
 # ────────────────────────────────────────────────────────────
@@ -76,72 +85,59 @@ route:
 # ────────────────────────────────────────────────────────────
 receivers:
 
-  # ── Auto-remediation webhook ──
+  # ── Auto-remediation webhook (Bearer token auth) ──
   - name: "auto-remediation-webhook"
     webhook_configs:
-      - url: "http://127.0.0.1:5001/webhook"
+      - url: "http://__LOCAL_IP__:__WEBHOOK_PORT__/webhook"
         send_resolved: true
+        http_config:
+          authorization:
+            credentials: "__WEBHOOK_TOKEN__"
 
   # ── Default fallback ──
   - name: "default-email"
     email_configs:
-      - to: "aditya.tiwari@sigmainfo.net"
+      - to: "__EMAIL_P1__"
         send_resolved: true
         html: '{{ template "email.alert" . }}'
         headers:
           Subject: '[AIOps] {{ .GroupLabels.severity | toUpper }} — {{ .GroupLabels.alertname }}'
 
-  # ── P1: Email + PagerDuty ──
+  # ── P1: Critical ──
   - name: "p1-critical"
     email_configs:
-      - to: "aditya.tiwari@sigmainfo.net"
+      - to: "__EMAIL_P1__"
         send_resolved: true
         html: '{{ template "email.alert" . }}'
         headers:
-          Subject: '🚨 [P1-CRITICAL] {{ .GroupLabels.alertname }} — IMMEDIATE ACTION'
+          Subject: '[P1-CRITICAL] {{ .GroupLabels.alertname }} — IMMEDIATE ACTION'
 
-    # ── PagerDuty for P1 ──
-    # UPDATE: Replace with your actual PagerDuty integration key
-    # pagerduty_configs:
-    #   - service_key: "<YOUR_PAGERDUTY_SERVICE_KEY>"
-    #     severity: critical
-    #     description: '{{ .GroupLabels.alertname }}: {{ .CommonAnnotations.summary }}'
-    #     details:
-    #       platform: '{{ .CommonAnnotations.platform }}'
-    #       environment: '{{ .CommonAnnotations.environment }}'
-    #       dashboard: '{{ .CommonAnnotations.grafana_dashboard }}'
-
-    # ── Slack for P1 (optional) ──
-    # UPDATE: Replace with your actual Slack webhook URL
-    # slack_configs:
-    #   - api_url: "https://hooks.slack.com/services/YOUR/SLACK/WEBHOOK"
-    #     channel: "#p1-critical-alerts"
-    #     title: '🚨 P1 CRITICAL — {{ .GroupLabels.alertname }}'
-    #     text: >-
-    #       *Summary:* {{ .CommonAnnotations.summary }}
-    #       *Platform:* {{ .CommonAnnotations.platform }}
-    #       *Environment:* {{ .CommonAnnotations.environment }}
-    #       *Error:* {{ .CommonAnnotations.error_sample }}
-    #       *Dashboard:* {{ .CommonAnnotations.grafana_dashboard }}
-    #     send_resolved: true
-
-  # ── P2: Email only ──
+  # ── P2: High ──
   - name: "p2-high"
     email_configs:
-      - to: "aditya.tiwari@sigmainfo.net"
+      - to: "__EMAIL_P2__"
         send_resolved: true
         html: '{{ template "email.alert" . }}'
         headers:
-          Subject: '⚠️ [P2-HIGH] {{ .GroupLabels.alertname }} — respond within 1 hour'
+          Subject: '[P2-HIGH] {{ .GroupLabels.alertname }} — respond within 1 hour'
 
-  # ── P3: Email daily digest ──
+  # ── P3: Low / daily digest ──
   - name: "p3-daily"
     email_configs:
-      - to: "aditya.tiwari@sigmainfo.net"
+      - to: "__EMAIL_P3__"
         send_resolved: true
         html: '{{ template "email.alert" . }}'
         headers:
-          Subject: 'ℹ️ [P3-LOW] {{ .GroupLabels.alertname }} — daily digest'
+          Subject: '[P3-LOW] {{ .GroupLabels.alertname }} — daily digest'
+
+  # ── LCP Correlation: enriched root-cause email ──
+  - name: "lcp-correlation"
+    email_configs:
+      - to: "__EMAIL_CORR__"
+        send_resolved: true
+        html: '{{ template "correlation.alert" . }}'
+        headers:
+          Subject: '[LCP-CORRELATION] {{ .GroupLabels.alertname }} — Root Cause: {{ .GroupLabels.root_cause }}'
 
 # ────────────────────────────────────────────────────────────
 # INHIBITION RULES
@@ -150,23 +146,20 @@ receivers:
 # ────────────────────────────────────────────────────────────
 inhibit_rules:
 
-  # P1 firing → suppress P2 for same service
   - source_match:
       severity: p1
     target_match:
       severity: p2
-    equal: ["service"]
+    equal: ["platform"]
 
-  # P1 firing → suppress P3 for same service
   - source_match:
       severity: p1
     target_match:
       severity: p3
-    equal: ["service"]
+    equal: ["platform"]
 
-  # P2 firing → suppress P3 for same service
   - source_match:
       severity: p2
     target_match:
       severity: p3
-    equal: ["service"]
+    equal: ["platform"]

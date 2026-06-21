@@ -1,16 +1,29 @@
 [Unit]
-Description=AOPS Auto-Remediation Webhook
+Description=AIOps Auto-Remediation Webhook
 After=network.target
 
 [Service]
 Type=simple
 User=adityatiwari
 WorkingDirectory=/home/adityatiwari/Documents/AOPS
-ExecStart=/usr/bin/python3 /home/adityatiwari/Documents/AOPS/webhook.py
+
+# Production server: gunicorn with 2 workers × 4 threads (handles concurrent webhook deliveries)
+ExecStart=/usr/local/bin/gunicorn \
+    --workers 2 \
+    --threads 4 \
+    --bind 0.0.0.0:5051 \
+    --timeout 120 \
+    --access-logfile /var/log/auto-remediation-access.log \
+    --error-logfile /var/log/auto-remediation-error.log \
+    --log-level info \
+    webhook:app
+
 Restart=always
 RestartSec=5
-StandardOutput=append:/home/adityatiwari/Documents/AOPS/webhook.stdout.log
-StandardError=append:/home/adityatiwari/Documents/AOPS/webhook.stderr.log
+
+# Allow webhook to read config.json and write logs
+ReadWritePaths=/home/adityatiwari/Documents/AOPS
+ReadWritePaths=/var/log
 
 [Install]
 WantedBy=multi-user.target

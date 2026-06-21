@@ -1,247 +1,328 @@
+"""
+Auto-Remediation Webhook — production-grade Flask/Gunicorn service.
+
+Run via systemd/gunicorn:
+  gunicorn --workers 2 --threads 4 --bind 0.0.0.0:5051 webhook:app
+
+Security:
+  - Bearer token auth on all POST /webhook requests (token from config.json)
+  - Script name validated against an explicit allowlist (no path traversal)
+  - Shared state protected by threading.Lock
+  - Request body capped at 1 MB
+"""
+
 import os
 import json
 import subprocess
-import time
-from datetime import datetime
-from flask import Flask, request, jsonify
 import threading
+import time
 import smtplib
+from datetime import datetime
+from functools import wraps
 from email.mime.text import MIMEText
 from email.mime.multipart import MIMEMultipart
 
-# Configuration
-LOG_FILE = os.path.join(os.path.dirname(os.path.abspath(__file__)), "auto-remediation.log")
-SLACK_WEBHOOK = "https://hooks.slack.com/services/T01D35Z6P7P/B06TZM06DQX/YOUR_KEY"
-SCRIPTS_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), "remediate")
+from flask import Flask, request, jsonify, abort
 
-# Deduplication and Resolution History
-remediation_history = {}
-fired_alerts = {}
+import config_loader
 
-def get_env_var(var_name):
-    env_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), ".env")
-    if os.path.exists(env_path):
-        with open(env_path, "r") as f:
-            for line in f:
-                if "=" in line and not line.strip().startswith("#"):
-                    k, v = line.split("=", 1)
-                    if k.strip() == var_name:
-                        return v.strip().strip('"').strip("'").split("#")[0].strip()
-    return os.environ.get(var_name)
+# ────────────────────────────────────────────────────────────
+# Constants derived from config.json
+# ────────────────────────────────────────────────────────────
+_cfg           = config_loader.load()
+WEBHOOK_TOKEN  = _cfg["webhook"]["secret_token"]
+SCRIPTS_DIR    = os.path.join(os.path.dirname(os.path.abspath(__file__)), "remediate")
+LOG_FILE       = os.path.join(os.path.dirname(os.path.abspath(__file__)), "auto-remediation.log")
 
-def send_email(subject, body):
-    sender_email = get_env_var("GMAIL_ADDRESS")
-    sender_password = get_env_var("GMAIL_APP_PASSWORD")
-    if not sender_email or not sender_password:
-        print("Email credentials missing in .env")
+# Explicit allowlist — only these script names can be dispatched
+ALLOWED_SCRIPTS = frozenset({"fpm-reload", "nginx-file-limit", "redis-flush-cache", "generic_triage"})
+
+DEDUP_WINDOW_SECONDS = 30   # ignore repeat firings within this window
+
+# ────────────────────────────────────────────────────────────
+# Thread-safe in-memory state
+# ────────────────────────────────────────────────────────────
+_lock              = threading.Lock()
+_fired_alerts: dict     = {}   # fingerprint → last_fired_timestamp
+_remediation_history: dict = {} # fingerprint → execution metadata
+
+
+def _update_fired(fingerprint: str):
+    with _lock:
+        _fired_alerts[fingerprint] = time.time()
+
+
+def _is_dedup_hit(fingerprint: str) -> bool:
+    with _lock:
+        last = _fired_alerts.get(fingerprint, 0)
+        return (time.time() - last) < DEDUP_WINDOW_SECONDS
+
+
+def _store_history(fingerprint: str, data: dict):
+    with _lock:
+        _remediation_history[fingerprint] = data
+
+
+def _pop_history(fingerprint: str) -> dict | None:
+    with _lock:
+        return _remediation_history.pop(fingerprint, None)
+
+
+# ────────────────────────────────────────────────────────────
+# Flask app
+# ────────────────────────────────────────────────────────────
+app = Flask(__name__)
+app.config["MAX_CONTENT_LENGTH"] = 1 * 1024 * 1024  # 1 MB cap
+
+
+def require_auth(f):
+    """Verify Bearer token sent by Alertmanager."""
+    @wraps(f)
+    def decorated(*args, **kwargs):
+        auth = request.headers.get("Authorization", "")
+        if not auth.startswith("Bearer ") or auth[7:] != WEBHOOK_TOKEN:
+            abort(401)
+        return f(*args, **kwargs)
+    return decorated
+
+
+# ────────────────────────────────────────────────────────────
+# Helpers
+# ────────────────────────────────────────────────────────────
+def _log(trigger: str, platform: str, diagnosis: str, action: str,
+         status: str, duration: float, evidence: str, is_rca: bool = False):
+    ts = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+    evidence_clean = evidence.replace("\n", " | ").replace('"', "'")[:500]
+    line = (
+        f"{ts} "
+        f'TRIGGER="{trigger}" '
+        f'PLATFORM="{platform}" '
+        f'DIAGNOSIS="{diagnosis}" '
+        f'ACTION="{action}" '
+        f'STATUS="{status}" '
+        f'DURATION="{duration:.2f}s" '
+        f'EVIDENCE="{evidence_clean}"\n'
+    )
+    try:
+        with open(LOG_FILE, "a") as f:
+            if is_rca:
+                f.write("─" * 60 + "\n")
+                f.write(f"[{ts}] RCA INVESTIGATION STARTED\n")
+            f.write(line)
+            f.flush()
+            os.fsync(f.fileno())
+    except OSError as e:
+        print(f"[webhook] log write failed: {e}")
+
+
+def _send_email(subject: str, body: str, to: str | None = None):
+    cfg = config_loader.load()
+    sender   = cfg["email"]["from_address"]
+    password = cfg["email"]["app_password"]
+    recipient = to or cfg["email"]["recipients"]["p1"]
+
+    if not sender or not password:
+        print("[webhook] email credentials not configured, skipping")
         return
-
     try:
         msg = MIMEMultipart()
-        msg['From'] = f"AOPS Remediation <{sender_email}>"
-        msg['To'] = sender_email
-        msg['Subject'] = subject
-        msg.attach(MIMEText(body, 'plain'))
-
-        with smtplib.SMTP_SSL("smtp.gmail.com", 465) as server:
-            server.login(sender_email, sender_password)
+        msg["From"]    = f"AIOps Remediation <{sender}>"
+        msg["To"]      = recipient
+        msg["Subject"] = subject
+        msg.attach(MIMEText(body, "plain"))
+        with smtplib.SMTP_SSL("smtp.gmail.com", 465, timeout=10) as server:
+            server.login(sender, password)
             server.send_message(msg)
     except Exception as e:
-        print(f"Failed to send email: {e}")
+        print(f"[webhook] email send failed: {e}")
 
-def is_auto_remediate_enabled():
-    paths = [
-        os.path.join(os.path.dirname(os.path.abspath(__file__)), ".env"),
-        "/etc/default/auto-remediation-webhook"
-    ]
-    for env_path in paths:
-        if os.path.exists(env_path):
-            with open(env_path, "r") as f:
-                for line in f:
-                    if line.startswith("AUTO_REMEDIATE="):
-                        val = line.split("=", 1)[1].strip().strip('"').strip("'").lower()
-                        if val == "false":
-                            return False
-    if os.environ.get("AUTO_REMEDIATE", "true").lower() == "false":
-        return False
-    return True
 
-app = Flask(__name__)
+def _get_safe_script_path(script_name: str) -> str | None:
+    """Return the absolute path only if the script name is on the allowlist."""
+    if script_name not in ALLOWED_SCRIPTS:
+        return None
+    candidate = os.path.realpath(os.path.join(SCRIPTS_DIR, f"{script_name}.sh"))
+    safe_root  = os.path.realpath(SCRIPTS_DIR) + os.sep
+    if not candidate.startswith(safe_root):
+        return None
+    return candidate
 
-def log_remediation(trigger, platform, diagnosis, action, status, duration, evidence, is_rca=False):
-    """Writes a production-ready structured log entry with visual RCA blocks."""
-    timestamp = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
-    evidence_clean = evidence.replace('\n', ' | ').replace('"', "'")
-    
-    with open(LOG_FILE, "a") as f:
-        if is_rca:
-            f.write("--------------------------------------------------------\n")
-            f.write(f"[{timestamp}] 🔍 GLOBAL RCA INVESTIGATION STARTED...\n")
-            # Resource snapshot is handled in the caller if needed
-        
-        log_line = (
-            f"{timestamp} "
-            f"TRIGGER=\"{trigger}\" "
-            f"PLATFORM=\"{platform}\" "
-            f"DIAGNOSIS=\"{diagnosis}\" "
-            f"ACTION=\"{action}\" "
-            f"STATUS=\"{status}\" "
-            f"DURATION=\"{duration}s\" "
-            f"EVIDENCE=\"{evidence_clean}\"\n"
-        )
-        f.write(log_line)
-        f.flush()
-        os.fsync(f.fileno())
 
-@app.route('/', methods=['GET'])
-def index():
-    """Live Action Dashboard for AOPS Remediation."""
+def _is_auto_remediate_enabled() -> bool:
+    return bool(_cfg["webhook"].get("auto_remediate", True))
+
+
+def _run_verify(task: str) -> str:
+    """SSH into the remote server and collect post-remediation evidence."""
+    cfg = config_loader.load()
+    remote_ip  = cfg["network"]["remote_ip"]
+    ssh_user   = cfg["ssh"]["user"]
+
+    cmds = {
+        "fpm-reload":       "systemctl status php8.4-fpm --no-pager",
+        "nginx-file-limit": "sysctl fs.file-max && systemctl status nginx --no-pager",
+        "redis-flush-cache":"redis-cli info memory | grep used_memory_human",
+    }
+    verify_cmd = cmds.get(task, "uptime")
+
+    helper = os.path.join(SCRIPTS_DIR, "ssh_helper.py")
     try:
-        if os.path.exists(LOG_FILE):
-            with open(LOG_FILE, 'r') as f:
-                lines = f.readlines()
-            recent_logs = "".join(lines[-10:])
-        else:
-            recent_logs = "No incidents logged yet."
+        res = subprocess.run(
+            ["python3", helper, verify_cmd],
+            capture_output=True, text=True, timeout=30
+        )
+        return (res.stdout.strip() or res.stderr.strip())[:1000]
     except Exception as e:
-        recent_logs = f"Error reading logs: {str(e)}"
-    
-    return f"""
-    <html><body style="font-family: sans-serif; padding: 20px; background: #fafafa;">
-    <h1>🚀 AOPS Auto-Remediation Engine</h1>
-    <p>Engine Status: <span style="color: green; font-weight: bold;">ACTIVE</span> | UI Port: 5051</p>
-    <hr/>
-    <h3>📜 Full Remediation Evidence Feed (Last 10):</h3>
-    <pre style="background: #222; color: #0f0; padding: 15px; border-radius: 5px; overflow-x: auto; font-size: 13px; line-height: 1.5;">{recent_logs}</pre>
-    <button onclick="window.location.reload();" style="padding: 10px 20px; cursor: pointer; background: #333; color: white; border: none; border-radius: 5px;">🔄 Refresh Feed</button>
-    <p style="color: #666; font-size: 12px;">Monitoring path: {LOG_FILE}</p>
-    </body></html>
-    """, 200
+        return f"verification failed: {e}"
 
-@app.route('/webhook', methods=['POST'])
-def webhook():
-    data = request.json
-    if not data:
-        return jsonify({"error": "No data"}), 400
 
-    alerts = data.get('alerts', [])
-    for alert in alerts:
-        threading.Thread(target=process_alert, args=(alert,)).start()
+# ────────────────────────────────────────────────────────────
+# Alert processor (runs in a background thread per alert)
+# ────────────────────────────────────────────────────────────
+def _process_alert(alert: dict):
+    labels      = alert.get("labels", {})
+    task        = labels.get("remediation", "generic_triage")
+    platform    = labels.get("platform", "unknown")
+    fingerprint = alert.get("fingerprint", f"{task}_{platform}")
 
-    return jsonify({"status": "processed"}), 200
+    # ── RESOLVED ──────────────────────────────────────────────
+    if alert.get("status") == "resolved":
+        history = _pop_history(fingerprint)
+        verify_output = _run_verify(task) if history else "no prior execution recorded"
 
-def process_alert(alert):
-    labels = alert.get('labels', {})
-    remediation_task = labels.get('remediation', 'generic_triage')
-    platform = labels.get('platform', 'unknown')
-    fingerprint = alert.get('fingerprint', f"{remediation_task}_{platform}")
-
-    if alert.get('status') == 'resolved':
-        # Retrieve history
-        history = remediation_history.pop(fingerprint, None)
-        
-        # Run Verification Command
-        verification_output = "No specific verification command defined."
+        alert_name = labels.get("alertname", "Unknown")
+        body = (
+            f"Incident '{alert_name}' resolved on platform '{platform}'.\n\n"
+            f"=== ROOT CAUSE ANALYSIS ===\n"
+        )
         if history:
-            task = history.get('task')
-            remote_ip = get_env_var("REMOTE_IP") or "10.10.2.21"
-            ssh_user = get_env_var("SSH_USER") or "test"
-            ssh_pw = get_env_var("SSH_PASSWORD") or ""
-            sudo_pw = get_env_var("SUDO_PASSWORD") or ""
-            
-            verify_cmd = "uptime"
-            if task == "fpm-reload":
-                verify_cmd = "systemctl status php8.4-fpm --no-pager"
-            elif task == "nginx-file-limit":
-                verify_cmd = "sysctl fs.file-max && systemctl status nginx --no-pager"
-            elif task == "redis-flush-cache":
-                verify_cmd = "redis-cli info memory | grep used_memory_human"
+            body += (
+                f"Detection:    {history['trigger']}\n"
+                f"Action:       {history['action']}\n"
+                f"Started:      {history['start_time']}\n"
+                f"Duration:     {history['duration']:.2f}s\n"
+                f"Final Status: {history['status']}\n"
+                f"Evidence:     {history['evidence']}\n\n"
+            )
+        body += f"=== POST-REMEDIATION VERIFICATION ===\n{verify_output}\n"
 
-            try:
-                # Use ssh_helper.py for verification
-                scripts_dir = os.path.join(os.path.dirname(os.path.abspath(__file__)), "remediate")
-                helper_path = os.path.join(scripts_dir, "ssh_helper.py")
-                res = subprocess.run(["python3", helper_path, remote_ip, ssh_user, ssh_pw, sudo_pw, verify_cmd], capture_output=True, text=True, timeout=30)
-                verification_output = res.stdout.strip() or res.stderr.strip()
-            except Exception as e:
-                verification_output = f"Verification failed: {e}"
-
-        # Build Summary Email
-        alert_name = labels.get('alertname', 'Unknown Alert')
-        subject = f"✅ Incident Resolved: {alert_name} [{platform}]"
-        
-        body = f"The incident '{alert_name}' has been successfully resolved.\n\n"
-        body += f"--- ROOT CAUSE ANALYSIS (RCA) ---\n"
-        if history:
-            body += f"Detection: {history.get('trigger')}\n"
-            body += f"Status: {history.get('status')}\n"
-            body += f"Evidence: {history.get('evidence')}\n\n"
-            
-            body += f"--- REMEDIATION ACTION ---\n"
-            body += f"Action: {history.get('action')}\n"
-            body += f"Execution Start: {history.get('start_time')}\n"
-            body += f"Total Duration: {history.get('duration')}s\n\n"
-        else:
-            body += "Remediation details were not recorded for this session, but recovery was confirmed.\n\n"
-
-        body += f"--- POST-REMEDIATION VERIFICATION ---\n"
-        body += f"{verification_output}\n\n"
-        body += f"Final System Status: RECOVERED\n"
-        
-        send_email(subject, body)
-        log_remediation("resolution", platform, "System Recovered", "monitoring", "RESOLVED", 0, "Self-heal summary sent")
+        threading.Thread(
+            target=_send_email,
+            args=(f"[RESOLVED] {alert_name} [{platform}]", body),
+            daemon=True
+        ).start()
+        _log("resolution", platform, "System Recovered", "monitoring", "RESOLVED", 0,
+             "self-heal summary sent")
         return
 
-    # FIRING CASE
-    start_time = time.time()
-    start_ts = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
-
-    # Deduplication Check (30s cooldown for script execution itself)
-    current_time = time.time()
-    if fingerprint in fired_alerts:
-        if current_time - fired_alerts[fingerprint] < 30:
-            return
-    fired_alerts[fingerprint] = current_time
-
-    script_path = os.path.join(SCRIPTS_DIR, f"{remediation_task}.sh")
-    
-    if not is_auto_remediate_enabled():
-        log_remediation(remediation_task, platform, "Maintenance Window", "skipped", "SKIPPED", 0, "AUTO_REMEDIATE is false")
+    # ── FIRING ────────────────────────────────────────────────
+    if not _is_auto_remediate_enabled():
+        _log(task, platform, "Maintenance Window", "skipped", "SKIPPED", 0,
+             "auto_remediate=false in config.json")
         return
 
-    if os.path.exists(script_path):
+    if _is_dedup_hit(fingerprint):
+        return
+
+    _update_fired(fingerprint)
+
+    script_path = _get_safe_script_path(task)
+    if script_path is None:
+        _log(task, platform, "Blocked", "security", "BLOCKED", 0,
+             f"'{task}' not in ALLOWED_SCRIPTS allowlist")
+        return
+    if not os.path.isfile(script_path):
+        _log(task, platform, "Script missing", "error", "FAILED", 0,
+             f"script not found: {script_path}")
+        return
+
+    start = time.time()
+    start_ts = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+
+    try:
         env = os.environ.copy()
-        for key, value in labels.items():
-            env[f"LABEL_{key.upper()}"] = str(value)
+        for k, v in labels.items():
+            env[f"LABEL_{k.upper()}"] = str(v)
 
-        try:
-            result = subprocess.run(["bash", script_path], env=env, capture_output=True, text=True, timeout=60)
-            duration = round(time.time() - start_time, 2)
-            
-            if "Confirmed:" in result.stdout:
-                diagnosis = result.stdout.split("Confirmed:")[1].split(".")[0].strip()
-                exec_status = "SUCCESS"
-            else:
-                diagnosis = "Analysis Attempted"
-                exec_status = "FAILED" if result.returncode != 0 else "SUCCESS"
-            
-            # Store for Resolved Email
-            remediation_history[fingerprint] = {
-                "trigger": remediation_task,
-                "action": remediation_task,
-                "task": remediation_task,
-                "start_time": start_ts,
-                "duration": duration,
-                "status": exec_status,
-                "evidence": result.stdout.strip(),
-                "platform": platform
-            }
-            
-            log_remediation(remediation_task, platform, diagnosis, remediation_task, exec_status, duration, result.stdout.strip(), is_rca=True)
-            # Do NOT send email here; wait for resolution
-            
-        except Exception as e:
-            log_remediation(remediation_task, platform, "ERROR CRASH", "triage", "FAILED", 0, str(e))
+        result = subprocess.run(
+            ["bash", script_path],
+            env=env, capture_output=True, text=True, timeout=90
+        )
+        duration = time.time() - start
 
-if __name__ == '__main__':
-    app.run(host='0.0.0.0', port=5051)
+        if "Confirmed:" in result.stdout:
+            diagnosis = result.stdout.split("Confirmed:")[1].split(".")[0].strip()
+        else:
+            diagnosis = "Analysis attempted"
+
+        exec_status = "FAILED" if result.returncode != 0 else "SUCCESS"
+        evidence    = (result.stdout + result.stderr).strip()
+
+        _store_history(fingerprint, {
+            "trigger":    task,
+            "action":     task,
+            "start_time": start_ts,
+            "duration":   duration,
+            "status":     exec_status,
+            "evidence":   evidence[:500],
+            "platform":   platform,
+        })
+
+        _log(task, platform, diagnosis, task, exec_status, duration,
+             evidence, is_rca=True)
+
+    except subprocess.TimeoutExpired:
+        _log(task, platform, "Timeout", task, "TIMEOUT", time.time() - start,
+             "script exceeded 90s timeout")
+    except Exception as e:
+        _log(task, platform, "Exception", task, "FAILED", time.time() - start, str(e))
+
+
+# ────────────────────────────────────────────────────────────
+# Routes
+# ────────────────────────────────────────────────────────────
+@app.route("/health")
+def health():
+    return jsonify({"status": "ok", "auto_remediate": _is_auto_remediate_enabled()})
+
+
+@app.route("/")
+def index():
+    try:
+        lines = open(LOG_FILE).readlines()[-20:] if os.path.exists(LOG_FILE) else []
+        recent = "".join(lines)
+    except OSError as e:
+        recent = f"Error reading log: {e}"
+
+    port = _cfg["ports"]["webhook"]
+    return (
+        f"""<html><body style="font-family:monospace;padding:20px;background:#111;color:#0f0">
+        <h2>AIOps Auto-Remediation Engine</h2>
+        <p>Status: <b>ACTIVE</b> | Port: {port} | Auto-remediate: {_is_auto_remediate_enabled()}</p>
+        <hr/>
+        <h3>Recent log (last 20 lines):</h3>
+        <pre style="overflow-x:auto;font-size:12px">{recent}</pre>
+        <button onclick="location.reload()" style="padding:8px 16px;cursor:pointer">Refresh</button>
+        </body></html>""",
+        200,
+    )
+
+
+@app.route("/webhook", methods=["POST"])
+@require_auth
+def webhook():
+    data = request.get_json(silent=True)
+    if not data:
+        return jsonify({"error": "invalid JSON"}), 400
+
+    for alert in data.get("alerts", []):
+        threading.Thread(target=_process_alert, args=(alert,), daemon=True).start()
+
+    return jsonify({"status": "accepted", "count": len(data.get("alerts", []))}), 200
+
+
+# ── Only used for local dev testing; production uses gunicorn ──
+if __name__ == "__main__":
+    port = _cfg["ports"]["webhook"]
+    print(f"[dev] starting Flask on port {port} — use gunicorn for production")
+    app.run(host="127.0.0.1", port=port, debug=False)
